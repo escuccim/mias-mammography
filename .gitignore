@@ -1,2 +1,7 @@
 /data
 *.zip
+*.tgz
+*.tar
+ES_FE/
+TF_FeatureExtraction/
+overfeat/
