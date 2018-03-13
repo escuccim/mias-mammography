@@ -6,3 +6,5 @@ ES_FE/
 TF_FeatureExtraction/
 overfeat/
 *.npy
+/model
+/logs

@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[87]:
+# In[1]:
 
 
 import numpy as np
@@ -9,33 +9,12 @@ import re
 from glob import glob
 import pandas as pd
 import pickle
+import os
+import re
+from mammo_utils import read_pgm
 
 
-# In[3]:
-
-
-def read_pgm(filename, byteorder='>'):
-    """Return image data from a raw PGM file as numpy array.
-    Format specification: http://netpbm.sourceforge.net/doc/pgm.html
-    """
-    with open(filename, 'rb') as f:
-        buffer = f.read()
-    try:
-        header, width, height, maxval = re.search(
-            b"(^P5\s(?:\s*#.*[\r\n])*"
-            b"(\d+)\s(?:\s*#.*[\r\n])*"
-            b"(\d+)\s(?:\s*#.*[\r\n])*"
-            b"(\d+)\s(?:\s*#.*[\r\n]\s)*)", buffer).groups()
-    except AttributeError:
-        raise ValueError("Not a raw PGM file: '%s'" % filename)
-    return np.frombuffer(buffer,
-                            dtype='u1' if int(maxval) < 256 else byteorder+'u2',
-                            count=int(width)*int(height),
-                            offset=len(header)
-                            ).reshape((int(height), int(width)))
-
-
-# In[4]:
+# In[64]:
 
 
 # read all pgms in
@@ -45,24 +24,50 @@ data = []
 for file in files:
     # read each file in and convert it to a float
     data.append(read_pgm(file) * 1.0)
+    
+images = np.array(data, dtype=np.int16)
 
-images = np.array(data, dtype=np.float32)
+# save the images to an npy file so they don't need to be read in individually in the future
+np.save(os.path.join('data','images.npy'), images)
+
+
+# In[2]:
+
+
+## do same for small resized pgms
+files = glob('data/small/*.pbm')
+small_data = []
+
+for file in files:
+    # read each file in and convert it to a float
+    small_data.append(read_pgm(file) * 1.0)
+
+small_images = np.array(small_data, dtype=np.int16)
+np.save(os.path.join('data','small_images.npy'), small_images)
+
+
+# In[67]:
+
+
+## And again for medium sized pgms
+files = glob('data/medium/*.pbm')
+med_data = []
+
+for file in files:
+    # read each file in and convert it to a float
+    med_data.append(read_pgm(file) * 1.0)
+
+medium_images = np.array(med_data, dtype=np.int16)
+np.save(os.path.join('data','medium_images.npy'), medium_images)
 
 
 # In[5]:
 
 
-# save the images to an npy file so they don't need to be read in individually in the future
-np.save('./images.npy', images)
-
-
-# In[56]:
-
-
 ## Label Data
 
 
-# In[102]:
+# In[6]:
 
 
 # import and clean the annotation data
@@ -71,7 +76,7 @@ all_cases_df = all_cases_df[all_cases_df.columns[:-1]] # drop last column
 all_cases_df['path'] = all_cases_df['REFNUM'].map(lambda x: '%s.pgm' % x)
 
 
-# In[103]:
+# In[7]:
 
 
 # Let's drop the duplicate rows
@@ -91,7 +96,7 @@ ben_idx = all_cases_df['SEVERITY'] == 'B'
 all_cases_df.loc[ben_idx,'TYPE'] = 0
 
 
-# In[104]:
+# In[8]:
 
 
 from sklearn.preprocessing import LabelEncoder
@@ -109,13 +114,13 @@ all_cases_df['CLASS_Y'] = class_vec
 all_cases_df = pd.get_dummies(all_cases_df, columns=['BG'])
 
 
-# In[105]:
+# In[11]:
 
 
 # save the cleaned data
-all_cases_df.to_pickle("all_cases_df.pkl")
+all_cases_df.to_pickle(os.path.join("data","all_cases_df.pkl"))
 
-np.save("labels.npy", class_names)
+np.save(os.path.join("data","names.npy"), class_names)
 
 # clean up the annotations to remove unneeded columns
 labels = all_cases_df.copy()
@@ -123,5 +128,5 @@ labels.drop(['CLASS','SEVERITY','path'], axis=1, inplace=True)
 
 # fill radius with 0
 labels['RADIUS'].fillna(0, inplace=True)
-labels.to_pickle("labels.pkl")
+labels.to_pickle(os.path.join("data","labels.pkl"))
 
