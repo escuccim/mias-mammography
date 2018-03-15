@@ -6,6 +6,8 @@
 
 import re
 import numpy as np
+import os
+from PIL import Image
 
 def read_pgm(filename, byteorder='>'):
     """Return image data from a raw PGM file as numpy array.
@@ -75,4 +77,23 @@ def download_file(url, name):
     except:
         os.mkdir("data")  
     fname = wget.download(url, os.path.join('data',name)) 
+
+
+# In[ ]:
+
+
+def convert_images_to_array(path, label_data=None):
+    data = []
+    labels = []
+    files = os.listdir(path)
+    for file in files:
+        img_data = Image.open(path + '/' + file)
+        arr = np.array(img_data)
+        data.append(arr)
+        
+        if label_data is not None:
+            label = label_data.loc[file].CLASS
+            labels.append(label)
+            
+    return np.array(data), labels
 
