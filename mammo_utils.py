@@ -1,14 +1,16 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[16]:
 
 
 import re
 import numpy as np
 import os
-from PIL import Image
+from PIL import Image, ImageMath
+import shutil
 
+## import PGM files and return a numpy array
 def read_pgm(filename, byteorder='>'):
     """Return image data from a raw PGM file as numpy array.
     Format specification: http://netpbm.sourceforge.net/doc/pgm.html
@@ -41,7 +43,7 @@ def read_pgm(filename, byteorder='>'):
 # In[1]:
 
 
-# flip every other image left to right so they are all oriented the same way
+## flip every other image left to right so they are all oriented the same way
 def read_images(file):
     # get the id of the images from the filename
     image_id = int(re.findall('([\d]+)\.', file)[0])
@@ -60,6 +62,7 @@ def read_images(file):
 # In[2]:
 
 
+## Extract a tar.gz file
 def extract_tar(fname, dest="./data/pgms"):
     mode = "r:gz" if (fname.endswith("tar.gz")) else "r:"
     tar = tarfile.open(fname, mode)
@@ -70,6 +73,7 @@ def extract_tar(fname, dest="./data/pgms"):
 # In[ ]:
 
 
+## Download files from a URL to a file in the data directory
 def download_file(url, name):
     # check that the data directory exists
     try:
@@ -79,9 +83,23 @@ def download_file(url, name):
     fname = wget.download(url, os.path.join('data',name)) 
 
 
+# In[13]:
+
+
+## flatten a directory tree to a single directory
+def copy_subdirectories_to_directory(path, destination):
+    subdirectories = os.listdir(path)
+    for directory in subdirectories:
+        files = os.listdir(os.path.join(path, directory))
+        for file in files:
+            shutil.copy(os.path.join(path, directory, file), destination)
+
+
 # In[ ]:
 
 
+## given a path to a directory containing images, open all files in the directory, convert the images to
+## a numpy array, and return the array containing all the images, with the labels
 def convert_images_to_array(path, label_data=None):
     data = []
     labels = []
@@ -96,4 +114,56 @@ def convert_images_to_array(path, label_data=None):
             labels.append(label)
             
     return np.array(data), labels
+
+
+# In[17]:
+
+
+## Open a png image, convert it to a JPG and save it
+def convert_png_to_jpg(path):
+    # open the image
+    im = Image.open(path)
+    im2 = ImageMath.eval('im/256', {'im':im}).convert('L')
+    
+    # create a new file name
+    path_array = path.split("\\")
+    dir_path = "\\".join(path_array[:-1])
+    image_name = path_array[-1]
+    new_image_name = image_name.replace('.png','.jpg')
+    new_image_name
+    
+    
+    im2.convert('RGB').save(os.path.join(dir_path, new_image_name),"JPEG")
+
+
+# In[ ]:
+
+
+## The scans from one particular scanner (DBA) have white sections cut out of them, possibly to hide personal information
+## this is only on the normal scans, so a convnet could use this information to identify the normal scans
+## to prevent this I will replace all white pixels with black, as there are no pure white pixels in a normal scan
+
+def remove_white_from_image(path):
+    # open the image
+    img = Image.open(path)
+    
+    # convert to rgb
+    img2 = ImageMath.eval('im/256', {'im':img}).convert('L')
+    
+    # turn the image into an array
+    im_array = np.array(img2)
+    
+    # turn all white pixels to black
+    im_array[im_array == 255] = 0
+    
+    return im_array
+
+
+# In[ ]:
+
+
+## Takes in a PIL image, resizes it to new_size square and returns the new images
+def resize_image(img, new_size):
+    img2 = img.resize((new_size, new_size), PIL.Image.ANTIALIAS)
+    return img2
 
