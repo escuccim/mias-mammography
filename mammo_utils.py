@@ -107,11 +107,19 @@ def convert_images_to_array(path, label_data=None):
     for file in files:
         img_data = Image.open(path + '/' + file)
         arr = np.array(img_data)
-        data.append(arr)
         
         if label_data is not None:
-            label = label_data.loc[file].CLASS
-            labels.append(label)
+            # catch errors if there is no label for the image
+            try:
+                label = label_data.loc[file].CLASS
+                labels.append(label)
+                # if we have labels only add the image if there is a label
+                data.append(arr)
+            except:
+                print("Error with", file)
+                continue
+        else:
+            data.append(arr)
             
     return np.array(data), labels
 
@@ -143,13 +151,14 @@ def convert_png_to_jpg(path):
 ## this is only on the normal scans, so a convnet could use this information to identify the normal scans
 ## to prevent this I will replace all white pixels with black, as there are no pure white pixels in a normal scan
 
-def remove_white_from_image(path):
+def remove_white_from_image(path, is_png=False):
     # open the image
     img = Image.open(path)
     
-    # convert to rgb
-    img2 = ImageMath.eval('im/256', {'im':img}).convert('L')
-    
+    if is_png:
+        # convert to rgb
+        img2 = ImageMath.eval('im/256', {'im':img}).convert('L')
+
     # turn the image into an array
     im_array = np.array(img2)
     
