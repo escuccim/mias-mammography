@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[16]:
+# In[1]:
 
 
 import re
@@ -9,6 +9,7 @@ import numpy as np
 import os
 from PIL import Image, ImageMath
 import shutil
+import PIL
 
 ## import PGM files and return a numpy array
 def read_pgm(filename, byteorder='>'):
@@ -40,7 +41,7 @@ def read_pgm(filename, byteorder='>'):
     return image
 
 
-# In[1]:
+# In[2]:
 
 
 ## flip every other image left to right so they are all oriented the same way
@@ -59,7 +60,7 @@ def read_images(file):
     return image
 
 
-# In[2]:
+# In[3]:
 
 
 ## Extract a tar.gz file
@@ -70,7 +71,7 @@ def extract_tar(fname, dest="./data/pgms"):
     tar.close()
 
 
-# In[ ]:
+# In[4]:
 
 
 ## Download files from a URL to a file in the data directory
@@ -83,7 +84,7 @@ def download_file(url, name):
     fname = wget.download(url, os.path.join('data',name)) 
 
 
-# In[13]:
+# In[5]:
 
 
 ## flatten a directory tree to a single directory
@@ -95,7 +96,7 @@ def copy_subdirectories_to_directory(path, destination):
             shutil.copy(os.path.join(path, directory, file), destination)
 
 
-# In[ ]:
+# In[6]:
 
 
 ## given a path to a directory containing images, open all files in the directory, convert the images to
@@ -124,7 +125,7 @@ def convert_images_to_array(path, label_data=None):
     return np.array(data), labels
 
 
-# In[17]:
+# In[7]:
 
 
 ## Open a png image, convert it to a JPG and save it
@@ -144,7 +145,7 @@ def convert_png_to_jpg(path):
     im2.convert('RGB').save(os.path.join(dir_path, new_image_name),"JPEG")
 
 
-# In[ ]:
+# In[8]:
 
 
 ## The scans from one particular scanner (DBA) have white sections cut out of them, possibly to hide personal information
@@ -168,11 +169,227 @@ def remove_white_from_image(path, is_png=False):
     return im_array
 
 
-# In[ ]:
+# In[9]:
 
 
 ## Takes in a PIL image, resizes it to new_size square and returns the new images
 def resize_image(img, new_size):
     img2 = img.resize((new_size, new_size), PIL.Image.ANTIALIAS)
     return img2
+
+
+# In[10]:
+
+
+## Loads a PNG image, converts it to an RGB numpy array, slices it into tiles and returns the tiles which contain usable images
+## Var and Mean thresholds can be used to only keep images with usable information in them.
+## Inputs: path - path to image
+##         var_threshold - only keep images with a variance BELOW this
+##         mean_threshold - only keep images with a mean ABOVE this
+
+def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_threshold=0):
+    # load the image
+    img = PIL.Image.open(path)
+    
+    # convert the image to RGB
+    img = PIL.ImageMath.eval('im/256', {'im':img}).convert('L')
+    
+    # size the image down by half
+    h, w = img.size
+    new_size = ( h // 2, w // 2)
+    img.thumbnail(new_size, PIL.Image.ANTIALIAS)
+    
+    # convert to an array
+    img = np.array(img)
+    
+    # remove white pixels, this will prevent images which contain text or white patches from being used
+    img[img > 225] = 0
+    
+    # remove 7% from each side of image to eliminate borders
+    h, w = img.shape
+    hmargin = int(h * 0.07)
+    wmargin = int(w * 0.07)
+    img = img[hmargin:h-hmargin, wmargin:w-wmargin]
+    
+    # slice the image into 299x299 tiles
+    size = 299
+    tiles = [img[x:x+size,y:y+size] for x in range(0,img.shape[0],size) for y in range(0,img.shape[1],size)]
+    usable_tiles = []
+    
+    # for each tile:
+    for i in range(len(tiles)):
+        # make sure tile has correct shape
+        if tiles[i].shape == (size,size):
+            # make sure tile has stuff in it
+            if np.mean(tiles[i]) >= mean_threshold:
+                # make sure the tile contains image and not mostly empty space
+                if np.var(tiles[i]) <= var_upper_threshold:
+                    if np.var(tiles[i]) >= var_lower_threshold:
+                        # reshape the tile so they will work with the convnet
+                        usable_tiles.append(tiles[i].reshape(299,299,1))
+            
+    return usable_tiles
+
+
+# In[11]:
+
+
+## rename the files to include the patient id so we can match the image up with the labels
+## also copy the images to a single directory so we have them all in one place
+def rename_and_copy_files(path, sourcedir="JPEG512", destdir="AllJPEGS512"):
+    directories = os.listdir(path+sourcedir)
+    source_path = path + sourcedir + "/"
+    destination_path = path + destdir + "/"
+    
+    # keep a counter so each file has a unique name
+    i = 1
+    
+    # loop through the directories
+    for directory in directories:
+        # get the patient number and image type from the directory name
+        patient_id = str(re.findall("_(P_[\d]+)_", directory))
+        if len(patient_id) > 0:
+            patient_id = patient_id[0]
+        else:
+            continue
+            
+        image_side = str(re.findall("_(LEFT|RIGHT)_", directory))
+        
+        if len(image_side) > 0:
+            image_side = image_side[0]
+        else:
+            continue
+        
+        image_type = str(re.findall("(CC|MLO)", directory))
+        if len(image_type) > 0:
+            image_type = image_type[0]
+        else:
+            continue
+        
+        if not patient_id:
+            continue
+            
+        # get the subdirectories
+        subdir = os.listdir(source_path+directory)
+
+        # get the next level of subdirectories
+        subsubdir = os.listdir(source_path+directory+'/'+subdir[0])
+
+        # get the files 
+        files = os.listdir(source_path+directory+'/'+subdir[0]+'/'+subsubdir[0])
+        path = source_path+directory+'/'+subdir[0]+'/'+subsubdir[0]
+
+        for file in files:
+            # rename the file so we know where it came from
+            # some of the data is not properly labeled, if that is the case skip it since we won't be able to label it
+            try:
+                new_name = path+'/'+patient_id+'_'+image_side+'_'+image_type+'.jpg'
+                os.rename(path+'/'+file, new_name)
+            except:
+                continue
+                
+            # make sure the destination directory exists
+            try:
+                os.stat(destination_path)
+            except:
+                os.mkdir(destination_path)  
+            
+            # copy the files so they are all in one directory
+            shutil.copy(new_name, destination_path)
+
+        i += 1
+
+
+# In[12]:
+
+
+## input: path to mask image PNG
+## opens the mask, reduces its size by half, finds the borders of the mask and returns the center of the mass
+## if the mass is bigger than the slice it returns the upper left and lower right corners of the mask as tuples
+## which will be used to create multiple slices
+## returns: center_row - int with center row of mask, or tuple with edges of the mask if the mask is bigger than the slice
+##          center_col - idem
+##          too_big - boolean indicating if the mask is bigger than the slice
+def create_mask(mask_path, slice_size=299):
+    # open the mask
+    mask = PIL.Image.open(mask_path)
+
+    # cut the image in half
+    h, w = mask.size
+    new_size = ( h // 2, w // 2)
+    mask.thumbnail(new_size, PIL.Image.ANTIALIAS)
+
+    # turn it into an arry
+    mask_arr = np.array(mask)
+    # get rid of the extras dimensions
+    mask_arr = mask_arr[:,:,0]
+
+    # find the borders
+    mask_mask = mask_arr == 255
+
+    # does each row or column have a white pixel in it?
+    cols = np.sum(mask_mask, axis=0)
+    rows = np.sum(mask_mask, axis=1)
+
+    first_col = np.argmax(cols > 0)
+    last_col = mask_arr.shape[1] - np.argmax(np.flip(cols, axis=0) > 0)
+    center_col = int((first_col + last_col) / 2)
+
+    first_row = np.argmax(rows > 0)
+    last_row = mask_arr.shape[0] - np.argmax(np.flip(rows, axis=0) > 0)
+    center_row = int((first_row + last_row) / 2)
+    
+    # signal if the mask is bigger than the slice
+    too_big = False
+    if (last_col - first_col > slice_size) or (last_row - first_row > slice_size):
+        # since it seems that masses are best defined by their edges, if the mask is bigger than the slice
+        # return tuples defining the corners of the mask. We will use those to create two slices containing 
+        # borders for the mass
+        center_col = (first_col, last_col)
+        center_row = (first_row, last_row)
+        too_big = True
+    
+    return center_row, center_col, too_big
+
+
+# In[ ]:
+
+
+## takes a PIL image as input, scales the image to half size and returns it
+def half_image(image):
+    h,w = image.size
+    
+    new_size = ( h // 2, w // 2)
+    image.thumbnail(new_size, PIL.Image.ANTIALIAS)
+    
+    return image
+
+
+# In[ ]:
+
+
+## function to read images contained in a directory, create slices from them and return a numpy array of the slices
+## with labels. The threshholds are used to filter out images which don't contain useful information, and also to
+## keep the number of images to a manageable level by rejecting some images
+def create_slices(path, output=True, var_upper_threshhold=0, var_lower_threshhold=0, mean_threshold=0):
+    files = os.listdir(path)
+    normal_slices = []
+    normal_labels = []
+    
+    i = 0
+    for file in files:
+        if output:
+            print(i, "-", file)
+        i += 1
+        tiles = slice_normal_image(os.path.join(path, file), var_upper_threshold=var_upper_threshhold, var_lower_threshold=var_lower_threshhold, mean_threshold=mean_threshold)
+        for tile in tiles:
+            normal_slices.append(tile)
+            normal_labels.append("NORMAL")
+        
+        #if i > 400:
+        #    break
+            
+    assert(len(normal_slices) == len(normal_labels))
+    
+    return np.array(normal_slices), np.array(normal_labels)
 
