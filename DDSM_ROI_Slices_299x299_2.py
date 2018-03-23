@@ -618,9 +618,9 @@ with graph.as_default():
 init = True                   # whether to initialize the model or use a saved version
 crop = False                  # do random cropping of images?
 
-meta_data_every = 5
+meta_data_every = 1
 log_to_tensorboard = True
-print_every = 3                # how often to print metrics
+print_every = 1                # how often to print metrics
 checkpoint_every = 1           # how often to save model in epochs
 use_gpu = False                 # whether or not to use the GPU
 print_metrics = True          # whether to print or plot metrics, if False a plot will be created and updated every epoch
