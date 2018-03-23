@@ -188,7 +188,7 @@ train_files = [train_path_0, train_path_1, train_path_2, train_path_3]
 graph = tf.Graph()
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s0.0.10"
+model_name = "model_s0.0.11"
 # 0.0.2 - reducing size of model to avoid runtime crashing
 # 0.0.4 - increasing model size since we have memory now
 # 0.0.9 - added pool0 between conv1 and conv2
@@ -794,7 +794,7 @@ with tf.Session(graph=graph, config=config) as sess:
         # save checkpoint every nth epoch
         if(epoch % checkpoint_every == 0):
             print("Saving checkpoint")
-            #save_path = saver.save(sess, './model/'+model_name+'.ckpt')
+            save_path = saver.save(sess, './model/'+model_name+'.ckpt')
     
             # Now that model is saved set init to false so we reload it next time
             init = False
@@ -808,7 +808,7 @@ with tf.Session(graph=graph, config=config) as sess:
         ## evaluate on test data if it exists, otherwise ignore this step
         if evaluate:
             # load the test data
-            X_cv, y_cv = load_validation_data(percentage=0.2, how="normal")
+            X_cv, y_cv = load_validation_data(percentage=0.5, how="normal")
             
             # evaluate the test data
             for X_batch, y_batch in get_batches(X_cv, y_cv, batch_size // 2, distort=False):
