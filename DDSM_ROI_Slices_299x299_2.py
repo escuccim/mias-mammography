@@ -94,7 +94,7 @@ def load_validation_data(how="class", percentage=0.5):
     
     return X_cv, y_cv
 
-def evaluate(graph=graph, config=config):
+def evaluate(graph, config):
     X_cv, y_cv = load_validation_data(how="normal")
 
     with tf.Session(graph=graph, config=config) as sess:
