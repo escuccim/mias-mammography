@@ -156,7 +156,7 @@ train_files = [train_path_0, train_path_1, train_path_2, train_path_3]
 graph = tf.Graph()
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s0.0.06"
+model_name = "model_s0.0.07"
 # 0.0.2 - reducing size of model to avoid runtime crashing
 # 0.0.4 - increasing model size since we have memory now
 
