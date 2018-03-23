@@ -4,7 +4,7 @@ import re
 import pickle
 import os
 import wget
-from IPython import display
+from sklearn.cross_validation  import train_test_split
 import tensorflow as tf
 
 ## download a file to a location in the data folder
@@ -94,26 +94,58 @@ def load_validation_data(how="class", percentage=0.5):
     
     return X_cv, y_cv
 
+def evaluate(graph=graph, config=config):
+    X_cv, y_cv = load_validation_data(how="normal")
 
-# ## Download Data
+    with tf.Session(graph=graph, config=config) as sess:
+        # create the saver
+        saver = tf.train.Saver()
+        sess.run(tf.local_variables_initializer())
+        saver.restore(sess, './model/' + model_name + '.ckpt')
 
-if not os.path.exists(os.path.join("data","training_0.tfrecords")):
-    _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_0.tfrecords', 'training_0.tfrecords')    
-    
-if not os.path.exists(os.path.join("data","training_1.tfrecords")):
-    _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_1.tfrecords', 'training_1.tfrecords')    
-    
-if not os.path.exists(os.path.join("data","training_2.tfrecords")):
-    _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_2.tfrecords', 'training_2.tfrecords')    
+        yhat, test_acc, test_recall = sess.run([predictions, accuracy, rec_op], feed_dict=
+        {
+            X: X_cv[0:128],
+            y: y_cv[0:128],
+            training: False
+        })
 
-if not os.path.exists(os.path.join("data","training_3.tfrecords")):
-    _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_3.tfrecords', 'training_3.tfrecords')    
+    # initialize the counter
+    i = 0
 
-if not os.path.exists(os.path.join("data","test_labels.npy")):
-    _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test_labels.npy', 'test_labels.npy')    
-    
-if not os.path.exists(os.path.join("data","test_data.npy")):
-    _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test_data.npy', 'test_data.npy')    
+    # print the results
+    print("Recall:", test_recall)
+    print("Accuracy:", test_acc)
+
+    # print specifics
+    for item in yhat:
+        if item == y_cv[i]:
+            found = "*"
+        else:
+            found = ""
+
+        print("Prediction:", item, " Actual:", y_cv[i], found)
+        i += 1
+
+## Download the data if it doesn't already exist
+def download_data():
+    if not os.path.exists(os.path.join("data","training_0.tfrecords")):
+        _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_0.tfrecords', 'training_0.tfrecords')
+
+    if not os.path.exists(os.path.join("data","training_1.tfrecords")):
+        _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_1.tfrecords', 'training_1.tfrecords')
+
+    if not os.path.exists(os.path.join("data","training_2.tfrecords")):
+        _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_2.tfrecords', 'training_2.tfrecords')
+
+    if not os.path.exists(os.path.join("data","training_3.tfrecords")):
+        _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_3.tfrecords', 'training_3.tfrecords')
+
+    if not os.path.exists(os.path.join("data","test_labels.npy")):
+        _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test_labels.npy', 'test_labels.npy')
+
+    if not os.path.exists(os.path.join("data","test_data.npy")):
+        _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test_data.npy', 'test_data.npy')
 
 
 # ## Create Model
@@ -159,6 +191,7 @@ init = True
 model_name = "model_s0.0.06"
 # 0.0.2 - reducing size of model to avoid runtime crashing
 # 0.0.4 - increasing model size since we have memory now
+# 0.0.9 - added pool0 between conv1 and conv2
 
 with graph.as_default():
     training = tf.placeholder(dtype=tf.bool, name="is_training")
@@ -236,11 +269,25 @@ with graph.as_default():
       
         if dropout:
             conv1_bn_relu = tf.layers.dropout(conv1_bn_relu, rate=0.1, seed=9, training=training)
-    
+
+    with tf.name_scope('pool0') as scope:
+        # Max pooling layer 1
+        pool0 = tf.layers.max_pooling2d(
+            conv1_bn_relu,  # Input
+            pool_size=(3, 3),  # Pool size: 3x3
+            strides=(2, 2),  # Stride: 2
+            padding='SAME',  # "same" padding
+            name='pool0'
+        )
+
+        if dropout:
+            # dropout at 10%
+            pool0 = tf.layers.dropout(pool0, rate=0.1, seed=1, training=training)
+
     with tf.name_scope('conv2') as scope:
         # Convolutional layer 12
         conv2 = tf.layers.conv2d(
-            conv1_bn_relu,                           # Input data
+            pool0,                           # Input data
             filters=32,                  # 32 filters
             kernel_size=(5, 5),          # Kernel size: 9x9
             strides=(1, 1),              # Stride: 1
@@ -603,10 +650,10 @@ with graph.as_default():
     
     # Create summary hooks
     tf.summary.scalar('accuracy', accuracy)
-    tf.summary.scalar('cross_entropy', mean_ce)
-    tf.summary.scalar('learning_rate', learning_rate)
-    tf.summary.scalar('loss', loss)
     tf.summary.scalar('recall', recall)
+    tf.summary.scalar('cross_entropy', mean_ce)
+    tf.summary.scalar('loss', loss)
+    tf.summary.scalar('learning_rate', learning_rate)
     
     # Merge all the summaries and write them out to /tmp/mnist_logs (by default)
     merged = tf.summary.merge_all()
@@ -767,62 +814,12 @@ with tf.Session(graph=graph, config=config) as sess:
         train_recall_values.append(np.mean(batch_recall))
         valid_recall_values.append(np.mean(batch_cv_recall))
 
-        if print_metrics:
-            # Print progress every nth epoch to keep output to reasonable amount
-            if(epoch % print_every == 0):
-                print('Epoch {:02d} - step {} - cv acc: {:.3f} - train acc: {:.3f} (mean) - cv cost: {:.3f} - lr: {:.5f}'.format(
-                    epoch, step, np.mean(batch_cv_acc), np.mean(batch_acc), np.mean(batch_cv_cost), lr
-                ))
-        else:
-            # update the plot
-            ax[0].cla()
-            ax[0].plot(valid_acc_values, color="red", label="Validation")
-            ax[0].plot(train_acc_values, color="blue", label="Training")
-            ax[0].set_title('Validation accuracy: {:.4f} (mean last 3)'.format(np.mean(valid_acc_values[-4:])))
-            
-            # since we can't zoom in on plots like in tensorboard, scale y axis to give a decent amount of detail
-            #if np.mean(valid_acc_values[-3:]) > 0.90:
-            #    ax[0].set_ylim([0.80,1.0])
-            #elif np.mean(valid_acc_values[-3:]) > 0.85:
-            #    ax[0].set_ylim([0.75,1.0])
-            #elif np.mean(valid_acc_values[-3:]) > 0.75:
-            #    ax[0].set_ylim([0.65,1.0])
-            #elif np.mean(valid_acc_values[-3:]) > 0.65:
-            #    ax[0].set_ylim([0.55,1.0])
-            #elif np.mean(valid_acc_values[-3:]) > 0.55:
-            #    ax[0].set_ylim([0.45,1.0])           
-            
-            ax[0].set_xlabel('Epoch')
-            ax[0].set_ylabel('Accuracy')
-            ax[0].legend()
-            
-            ax[1].cla()
-            ax[1].plot(valid_recall_values, color="red", label="Validation")
-            ax[1].plot(train_recall_values, color="blue", label="Training")
-            ax[1].set_title('Validation recall: {:.3f} (mean last 3)'.format(np.mean(valid_recall_values[-4:])))
-            ax[1].set_xlabel('Epoch')
-            ax[1].set_ylabel('Recall')
-            #ax[1].set_ylim([0,2.0])
-            ax[1].legend()
-            
-            ax[2].cla()
-            ax[2].plot(valid_cost_values, color="red", label="Validation")
-            ax[2].plot(train_cost_values, color="blue", label="Training")
-            ax[2].set_title('Validation xentropy: {:.3f} (mean last 3)'.format(np.mean(valid_cost_values[-4:])))
-            ax[2].set_xlabel('Epoch')
-            ax[2].set_ylabel('Cross Entropy')
-            ax[2].set_ylim([0,3.0])
-            ax[2].legend()
-            
-            ax[3].cla()
-            ax[3].plot(train_lr_values)
-            ax[3].set_title("Learning rate: {:.6f}".format(np.mean(train_lr_values[-1:])))
-            ax[3].set_xlabel("Epoch")
-            ax[3].set_ylabel("Learning Rate")
-            
-            display.display(plt.gcf())
-            display.clear_output(wait=True)
-            
+        # Print progress every nth epoch to keep output to reasonable amount
+        if(epoch % print_every == 0):
+            print('Epoch {:02d} - step {} - cv acc: {:.3f} - train acc: {:.3f} (mean) - cv cost: {:.3f} - lr: {:.5f}'.format(
+                epoch, step, np.mean(batch_cv_acc), np.mean(batch_acc), np.mean(batch_cv_cost), lr
+            ))
+
         # Print data every 50th epoch so I can write it down to compare models
         if (not print_metrics) and (epoch % 50 == 0) and (epoch > 1):
             if(epoch % print_every == 0):
@@ -835,3 +832,4 @@ with tf.Session(graph=graph, config=config) as sess:
     
     # Wait for threads to stop
     coord.join(threads)
+
