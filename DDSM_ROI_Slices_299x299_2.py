@@ -670,7 +670,7 @@ with graph.as_default():
     )
 
     # Weighted mean cross-entropy to trade-off precision for recall
-    mean_ce = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=tf.one_hot(y, depth=num_classes), logits=logits, pos_weight=1.5))
+    mean_ce = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=tf.one_hot(y, depth=num_classes), logits=logits, pos_weight=3))
     #mean_ce = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=logits))
     loss = mean_ce + tf.losses.get_regularization_loss()
 
