@@ -147,7 +147,7 @@ def download_data():
     if not os.path.exists(os.path.join("data","test_data.npy")):
         _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test_data.npy', 'test_data.npy')
 
-
+download_data()
 # ## Create Model
 
 # config
