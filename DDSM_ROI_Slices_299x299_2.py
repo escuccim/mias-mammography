@@ -94,7 +94,7 @@ def load_validation_data(how="class", percentage=0.5):
     
     return X_cv, y_cv
 
-def evaluate(graph, config):
+def evaluate_model(graph, config):
     X_cv, y_cv = load_validation_data(how="normal")
 
     with tf.Session(graph=graph, config=config) as sess:
@@ -188,12 +188,13 @@ train_files = [train_path_0, train_path_1, train_path_2, train_path_3]
 graph = tf.Graph()
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s0.0.13"
+model_name = "model_s0.0.14"
 # 0.0.2 - reducing size of model to avoid runtime crashing
 # 0.0.4 - increasing model size since we have memory now
 # 0.0.9 - added pool0 between conv1 and conv2
 # 0.0.10 - reduced lambdaF from, changed stride of conv1 to 2
 # 0.0.11 - remove pool0, added conv7 and pool6 to further reduce data before fc layers
+# 0.0.14 - try weighted cross entropy to improve recall
 
 with graph.as_default():
     training = tf.placeholder(dtype=tf.bool, name="is_training")
@@ -669,8 +670,8 @@ with graph.as_default():
     )
 
     # Weighted mean cross-entropy to trade-off precision for recall
-    # mean_ce = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=y, logits=logits, pos_weight=1.5))
-    mean_ce = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=logits))
+    mean_ce = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=tf.one_hot(y, depth=num_classes), logits=logits, pos_weight=1.5))
+    #mean_ce = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=logits))
     loss = mean_ce + tf.losses.get_regularization_loss()
 
     # Adam optimizer
