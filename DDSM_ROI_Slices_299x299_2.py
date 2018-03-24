@@ -212,25 +212,6 @@ with graph.as_default():
                                                staircase=staircase)
 
     with tf.name_scope('inputs') as scope:
-        # train_images, train_labels = read_and_decode_single_example([test_path])
-        # test_images, test_labels = read_and_decode_single_example([train_path_0])
-
-        # image = tf.cond(
-        #    is_testing,
-        #    true_fn=lambda: train_images,
-        #    false_fn=lambda:  test_images,
-        #    strict=False,
-        #    name="input_image_cond",
-        # )
-
-        # label = tf.cond(
-        #    is_testing,
-        #    true_fn=lambda: train_labels,
-        #    false_fn=lambda:  test_labels,
-        #    strict=False,
-        #    name="input_label_cond",
-        # )
-
         image, label = read_and_decode_single_example(train_files, label_type="label_normal")
 
         X_def, y_def = tf.train.shuffle_batch([image, label], batch_size=batch_size, capacity=2000,
@@ -240,8 +221,8 @@ with graph.as_default():
         X = tf.placeholder_with_default(X_def, shape=[None, 299, 299, 1])
         y = tf.placeholder_with_default(y_def, shape=[None])
 
+    # Convolutional layer 1
     with tf.name_scope('conv1') as scope:
-        # Convolutional layer 1
         conv1 = tf.layers.conv2d(
             X,  # Input data
             filters=32,  # 32 filters
@@ -254,7 +235,6 @@ with graph.as_default():
             name='conv1'
         )
 
-        # try batch normalization
         conv1 = tf.layers.batch_normalization(
             conv1,
             axis=-1,
@@ -276,8 +256,8 @@ with graph.as_default():
         if dropout:
             conv1_bn_relu = tf.layers.dropout(conv1_bn_relu, rate=0.1, seed=9, training=training)
 
+    # Max pooling layer 1
     with tf.name_scope('pool1') as scope:
-        # Max pooling layer 1
         pool1 = tf.layers.max_pooling2d(
             conv1_bn_relu,  # Input
             pool_size=(3, 3),  # Pool size: 3x3
@@ -290,8 +270,8 @@ with graph.as_default():
             # dropout at 10%
             pool1 = tf.layers.dropout(pool1, rate=0.1, seed=1, training=training)
 
+    # Convolutional layer 2
     with tf.name_scope('conv2') as scope:
-        # Convolutional layer 12
         conv2 = tf.layers.conv2d(
             pool1,  # Input data
             filters=64,  # 32 filters
@@ -304,7 +284,6 @@ with graph.as_default():
             name='conv2'
         )
 
-        # try batch normalization
         conv2 = tf.layers.batch_normalization(
             conv2,
             axis=-1,
@@ -326,8 +305,8 @@ with graph.as_default():
         if dropout:
             conv2_bn_relu = tf.layers.dropout(conv2_bn_relu, rate=0.1, seed=9, training=training)
 
+    # Max pooling layer 2
     with tf.name_scope('pool2') as scope:
-        # Max pooling layer 1
         pool2 = tf.layers.max_pooling2d(
             conv2_bn_relu,  # Input
             pool_size=(3, 3),  # Pool size: 3x3
@@ -340,8 +319,8 @@ with graph.as_default():
             # dropout at 10%
             pool2 = tf.layers.dropout(pool2, rate=0.1, seed=1, training=training)
 
+    # Convolutional layer 3
     with tf.name_scope('conv3') as scope:
-        # Convolutional layer 3
         conv3 = tf.layers.conv2d(
             pool2,  # Input data
             filters=96,  # 48 filters
@@ -354,7 +333,6 @@ with graph.as_default():
             name='conv3'
         )
 
-        # try batch normalization
         bn3 = tf.layers.batch_normalization(
             conv3,
             axis=-1,
@@ -376,8 +354,8 @@ with graph.as_default():
         if dropout:
             conv3_bn_relu = tf.layers.dropout(conv3_bn_relu, rate=0.1, seed=9, training=training)
 
+    # Max pooling layer 3
     with tf.name_scope('pool3') as scope:
-        # Max pooling layer 2
         pool3 = tf.layers.max_pooling2d(
             conv3_bn_relu,  # Input
             pool_size=(2, 2),  # Pool size: 2x2
@@ -390,8 +368,8 @@ with graph.as_default():
             # dropout at 10%
             pool3 = tf.layers.dropout(pool3, rate=0.1, seed=1, training=training)
 
+    # Convolutional layer 4
     with tf.name_scope('conv4') as scope:
-        # Convolutional layer 4
         conv4 = tf.layers.conv2d(
             pool3,  # Input data
             filters=128,  # 64 filters
@@ -404,7 +382,6 @@ with graph.as_default():
             name='conv4'
         )
 
-        # try batch normalization
         bn4 = tf.layers.batch_normalization(
             conv4,
             axis=-1,
@@ -426,8 +403,8 @@ with graph.as_default():
         if dropout:
             conv4_bn_relu = tf.layers.dropout(conv4_bn_relu, rate=0.1, seed=9, training=training)
 
+    # Max pooling layer 4
     with tf.name_scope('pool4') as scope:
-        # Average pooling layer 3
         pool4 = tf.layers.max_pooling2d(
             conv4_bn_relu,  # Input
             pool_size=(2, 2),  # Pool size: 2x2
@@ -440,8 +417,8 @@ with graph.as_default():
             # dropout at 10%
             pool4 = tf.layers.dropout(pool4, rate=0.25, seed=1, training=training)
 
+    # Convolutional layer 5
     with tf.name_scope('conv5') as scope:
-        # Convolutional layer 5
         conv5 = tf.layers.conv2d(
             pool4,  # Input data
             filters=256,  # 64 filters
@@ -454,7 +431,6 @@ with graph.as_default():
             name='conv5'
         )
 
-        # try batch normalization
         bn5 = tf.layers.batch_normalization(
             conv5,
             axis=-1,
@@ -476,8 +452,8 @@ with graph.as_default():
         if dropout:
             conv5_bn_relu = tf.layers.dropout(conv5_bn_relu, rate=0.1, seed=9, training=training)
 
+    # Max pooling layer 5
     with tf.name_scope('pool5') as scope:
-        # Average pooling layer 4
         pool5 = tf.layers.max_pooling2d(
             conv5_bn_relu,  # Input
             pool_size=(2, 2),  # Pool size: 2x2
@@ -490,8 +466,8 @@ with graph.as_default():
             # dropout at 10%
             pool5 = tf.layers.dropout(pool5, rate=0.1, seed=1, training=training)
 
+    # Convolutional layer 6
     with tf.name_scope('conv6') as scope:
-        # Convolutional layer 3
         conv6 = tf.layers.conv2d(
             pool5,  # Input data
             filters=384,  # 48 filters
@@ -504,7 +480,6 @@ with graph.as_default():
             name='conv6'
         )
 
-        # try batch normalization
         bn6 = tf.layers.batch_normalization(
             conv6,
             axis=-1,
@@ -527,7 +502,7 @@ with graph.as_default():
             conv6_bn_relu = tf.layers.dropout(conv6_bn_relu, rate=0.1, seed=9, training=training)
 
     with tf.name_scope('pool6') as scope:
-        # Average pooling layer 4
+        # Max pooling layer 6
         pool6 = tf.layers.max_pooling2d(
             conv6_bn_relu,  # Input
             pool_size=(2, 2),  # Pool size: 2x2
@@ -541,7 +516,7 @@ with graph.as_default():
             pool6 = tf.layers.dropout(pool6, rate=0.1, seed=1, training=training)
 
     with tf.name_scope('conv7') as scope:
-        # Convolutional layer 3
+        # Convolutional layer 7
         conv7 = tf.layers.conv2d(
             pool6,  # Input data
             filters=512,  # 48 filters
@@ -554,7 +529,6 @@ with graph.as_default():
             name='conv7'
         )
 
-        # try batch normalization
         bn7 = tf.layers.batch_normalization(
             conv7,
             axis=-1,
@@ -577,7 +551,7 @@ with graph.as_default():
             conv7_bn_relu = tf.layers.dropout(conv7_bn_relu, rate=0.1, seed=9, training=training)
 
     with tf.name_scope('pool7') as scope:
-        # Average pooling layer 4
+        # Max pooling layer 7
         pool7 = tf.layers.max_pooling2d(
             conv7_bn_relu,  # Input
             pool_size=(2, 2),  # Pool size: 2x2
@@ -671,7 +645,7 @@ with graph.as_default():
         name="logits"
     )
 
-    # Weighted mean cross-entropy to trade-off precision for recall
+    # This will weight the positive examples higher so as to improve recall
     weights = tf.multiply(4, tf.cast(tf.equal(y, 1), tf.int32)) + 1
     # onehot_labels = tf.one_hot(y, depth=num_classes)
     # mean_ce = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=tf.one_hot(y, depth=num_classes), logits=logits, pos_weight=classes_weights))

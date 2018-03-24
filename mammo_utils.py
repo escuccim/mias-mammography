@@ -310,7 +310,7 @@ def rename_and_copy_files(path, sourcedir="JPEG512", destdir="AllJPEGS512"):
 ## returns: center_row - int with center row of mask, or tuple with edges of the mask if the mask is bigger than the slice
 ##          center_col - idem
 ##          too_big - boolean indicating if the mask is bigger than the slice
-def create_mask(mask_path, slice_size=299):
+def create_mask(mask_path, slice_size=299, return_size=False):
     # open the mask
     mask = PIL.Image.open(mask_path)
 
@@ -339,6 +339,11 @@ def create_mask(mask_path, slice_size=299):
     last_row = mask_arr.shape[0] - np.argmax(np.flip(rows, axis=0) > 0)
     center_row = int((first_row + last_row) / 2)
     
+    col_size = last_col - first_col
+    row_size = last_row - first_row
+    
+    mask_size = np.max([col_size, row_size])
+    
     # signal if the mask is bigger than the slice
     too_big = False
     if (last_col - first_col > slice_size) or (last_row - first_row > slice_size):
@@ -349,7 +354,11 @@ def create_mask(mask_path, slice_size=299):
         center_row = (first_row, last_row)
         too_big = True
     
-    return center_row, center_col, too_big
+    # optionally return the largest side of the squared mask
+    if return_size:
+        return center_row, center_col, too_big, mask_size
+    else:
+        return center_row, center_col, too_big
 
 
 # In[ ]:
@@ -369,8 +378,7 @@ def half_image(image):
 
 
 ## function to read images contained in a directory, create slices from them and return a numpy array of the slices
-## with labels. The threshholds are used to filter out images which don't contain useful information, and also to
-## keep the number of images to a manageable level by rejecting some images
+## with labels. The threshholds are used to filter out images which are not usable or interesting. 
 def create_slices(path, output=True, var_upper_threshhold=0, var_lower_threshhold=0, mean_threshold=0):
     files = os.listdir(path)
     normal_slices = []
