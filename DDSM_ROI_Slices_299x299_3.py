@@ -188,7 +188,7 @@ train_files = [train_path_0, train_path_1, train_path_2, train_path_3]
 graph = tf.Graph()
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s0.1.01"
+model_name = "model_s0.1.02"
 # 0.1.01 - increased size since the GPU can handle it
 
 with graph.as_default():
