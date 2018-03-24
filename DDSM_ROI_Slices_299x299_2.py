@@ -195,6 +195,7 @@ model_name = "model_s0.0.14"
 # 0.0.10 - reduced lambdaF from, changed stride of conv1 to 2
 # 0.0.11 - remove pool0, added conv7 and pool6 to further reduce data before fc layers
 # 0.0.14 - try weighted cross entropy to improve recall
+# 0.0.15 - increase batch size
 
 with graph.as_default():
     training = tf.placeholder(dtype=tf.bool, name="is_training")
@@ -843,7 +844,8 @@ with tf.Session(graph=graph, config=config) as sess:
             # Write average of validation data to summary logs
             if log_to_tensorboard:
                 summary = tf.Summary(value=[tf.Summary.Value(tag="accuracy", simple_value=np.mean(batch_cv_acc)),
-                                            tf.Summary.Value(tag="cross_entropy", simple_value=np.mean(batch_cv_cost)),])
+                                            tf.Summary.Value(tag="cross_entropy", simple_value=np.mean(batch_cv_cost)),
+                                            tf.Summary.Value(tag="recall", simple_value=np.mean(batch_cv_recall)), ])
                 test_writer.add_summary(summary, step)
                 step += 1
             
