@@ -196,6 +196,7 @@ model_name = "model_s0.0.14"
 # 0.0.11 - remove pool0, added conv7 and pool6 to further reduce data before fc layers
 # 0.0.14 - try weighted cross entropy to improve recall
 # 0.0.15 - increase batch size
+# 0.0.17 - per example weighting to improve recall
 
 with graph.as_default():
     training = tf.placeholder(dtype=tf.bool, name="is_training")
@@ -671,8 +672,13 @@ with graph.as_default():
     )
 
     # Weighted mean cross-entropy to trade-off precision for recall
-    mean_ce = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=tf.one_hot(y, depth=num_classes), logits=logits, pos_weight=3))
-    #mean_ce = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=logits))
+    weights = tf.multiply(4, tf.cast(tf.equal(y, 1), tf.int32)) + 1
+    # onehot_labels = tf.one_hot(y, depth=num_classes)
+    # mean_ce = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=tf.one_hot(y, depth=num_classes), logits=logits, pos_weight=classes_weights))
+    # mean_ce = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=logits))
+    mean_ce = tf.reduce_mean(tf.losses.sparse_softmax_cross_entropy(labels=y, logits=logits, weights=weights))
+
+
     loss = mean_ce + tf.losses.get_regularization_loss()
 
     # Adam optimizer
