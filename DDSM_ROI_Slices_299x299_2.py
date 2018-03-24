@@ -152,7 +152,7 @@ def download_data():
 
 # config
 epochs = 100                  
-batch_size = 32
+batch_size = 64
 
 ## Hyperparameters
 # Small epsilon value for the BN transform
