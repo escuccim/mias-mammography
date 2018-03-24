@@ -301,7 +301,7 @@ with graph.as_default():
     with tf.name_scope('conv2') as scope:
         conv2 = tf.layers.conv2d(
             pool1,  # Input data
-            filters=64,  # 32 filters
+            filters=48,  # 32 filters
             kernel_size=(3, 3),  # Kernel size: 9x9
             strides=(1, 1),  # Stride: 1
             padding='SAME',  # "same" padding
@@ -335,7 +335,7 @@ with graph.as_default():
     with tf.name_scope('conv2.1') as scope:
         conv21 = tf.layers.conv2d(
             conv2_bn_relu,  # Input data
-            filters=64,  # 32 filters
+            filters=48,  # 32 filters
             kernel_size=(3, 3),  # Kernel size: 9x9
             strides=(1, 1),  # Stride: 1
             padding='SAME',  # "same" padding
@@ -384,7 +384,7 @@ with graph.as_default():
     with tf.name_scope('conv3') as scope:
         conv3 = tf.layers.conv2d(
             pool2,  # Input data
-            filters=96,  # 48 filters
+            filters=64,  # 48 filters
             kernel_size=(3, 3),  # Kernel size: 5x5
             strides=(1, 1),  # Stride: 1
             padding='SAME',  # "same" padding
