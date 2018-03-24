@@ -699,7 +699,7 @@ with graph.as_default():
 init = True                   # whether to initialize the model or use a saved version
 crop = False                  # do random cropping of images?
 
-meta_data_every = 5
+meta_data_every = 1
 log_to_tensorboard = True
 print_every = 3                # how often to print metrics
 checkpoint_every = 1           # how often to save model in epochs
@@ -804,7 +804,7 @@ with tf.Session(graph=graph, config=config) as sess:
         ## evaluate on test data if it exists, otherwise ignore this step
         if evaluate:
             # load the test data
-            X_cv, y_cv = load_validation_data(percentage=0.5, how="normal")
+            X_cv, y_cv = load_validation_data(percentage=1, how="normal")
             
             # evaluate the test data
             for X_batch, y_batch in get_batches(X_cv, y_cv, batch_size // 2, distort=False):

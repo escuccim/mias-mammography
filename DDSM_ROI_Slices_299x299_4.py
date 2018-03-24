@@ -188,8 +188,8 @@ train_files = [train_path_0, train_path_1, train_path_2, train_path_3]
 graph = tf.Graph()
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s0.1.01"
-# 0.1.01 - increased size since the GPU can handle it
+model_name = "model_s0.2.04"
+# 0.2.01 - trying to do more convolutions at first, and then rapidly decrease dimensionality
 
 with graph.as_default():
     training = tf.placeholder(dtype=tf.bool, name="is_training")
@@ -218,7 +218,7 @@ with graph.as_default():
     with tf.name_scope('conv1') as scope:
         conv1 = tf.layers.conv2d(
             X,  # Input data
-            filters=32,  # 32 filters
+            filters=64,  # 32 filters
             kernel_size=(5, 5),  # Kernel size: 5x5
             strides=(1, 1),  # Stride: 2
             padding='SAME',  # "same" padding
@@ -252,7 +252,7 @@ with graph.as_default():
     with tf.name_scope('conv1.1') as scope:
         conv11 = tf.layers.conv2d(
             conv1_bn_relu,  # Input data
-            filters=32,  # 32 filters
+            filters=64,  # 32 filters
             kernel_size=(5, 5),  # Kernel size: 5x5
             strides=(1, 1),  # Stride: 2
             padding='SAME',  # "same" padding
@@ -287,7 +287,7 @@ with graph.as_default():
     with tf.name_scope('pool1') as scope:
         pool1 = tf.layers.max_pooling2d(
             conv11_bn_relu,  # Input
-            pool_size=(3, 3),  # Pool size: 3x3
+            pool_size=(2, 2),  # Pool size: 3x3
             strides=(2, 2),  # Stride: 2
             padding='SAME',  # "same" padding
             name='pool1'
@@ -301,9 +301,9 @@ with graph.as_default():
     with tf.name_scope('conv2') as scope:
         conv2 = tf.layers.conv2d(
             pool1,  # Input data
-            filters=48,  # 32 filters
+            filters=96,  # 32 filters
             kernel_size=(3, 3),  # Kernel size: 9x9
-            strides=(1, 1),  # Stride: 1
+            strides=(2, 2),  # Stride: 1
             padding='SAME',  # "same" padding
             activation=None,  # None
             kernel_initializer=tf.truncated_normal_initializer(stddev=5e-2, seed=10),
@@ -335,7 +335,7 @@ with graph.as_default():
     with tf.name_scope('conv2.1') as scope:
         conv21 = tf.layers.conv2d(
             conv2_bn_relu,  # Input data
-            filters=48,  # 32 filters
+            filters=96,  # 32 filters
             kernel_size=(3, 3),  # Kernel size: 9x9
             strides=(1, 1),  # Stride: 1
             padding='SAME',  # "same" padding
@@ -384,7 +384,7 @@ with graph.as_default():
     with tf.name_scope('conv3') as scope:
         conv3 = tf.layers.conv2d(
             pool2,  # Input data
-            filters=64,  # 48 filters
+            filters=128,  # 48 filters
             kernel_size=(3, 3),  # Kernel size: 5x5
             strides=(1, 1),  # Stride: 1
             padding='SAME',  # "same" padding
@@ -433,7 +433,7 @@ with graph.as_default():
     with tf.name_scope('conv4') as scope:
         conv4 = tf.layers.conv2d(
             pool3,  # Input data
-            filters=128,  # 64 filters
+            filters=192,  # 64 filters
             kernel_size=(3, 3),  # Kernel size: 3x3
             strides=(1, 1),  # Stride: 1
             padding='SAME',  # "same" padding
@@ -531,7 +531,7 @@ with graph.as_default():
     with tf.name_scope('conv6') as scope:
         conv6 = tf.layers.conv2d(
             pool5,  # Input data
-            filters=384,  # 48 filters
+            filters=512,  # 48 filters
             kernel_size=(3, 3),  # Kernel size: 5x5
             strides=(1, 1),  # Stride: 1
             padding='SAME',  # "same" padding
@@ -576,58 +576,9 @@ with graph.as_default():
             # dropout at 10%
             pool6 = tf.layers.dropout(pool6, rate=0.1, seed=1, training=training)
 
-    with tf.name_scope('conv7') as scope:
-        # Convolutional layer 7
-        conv7 = tf.layers.conv2d(
-            pool6,  # Input data
-            filters=512,  # 48 filters
-            kernel_size=(3, 3),  # Kernel size: 5x5
-            strides=(1, 1),  # Stride: 1
-            padding='SAME',  # "same" padding
-            activation=None,  # None
-            kernel_initializer=tf.truncated_normal_initializer(stddev=5e-2, seed=10),
-            kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=lamC),
-            name='conv7'
-        )
-
-        bn7 = tf.layers.batch_normalization(
-            conv7,
-            axis=-1,
-            momentum=0.99,
-            epsilon=epsilon,
-            center=True,
-            scale=True,
-            beta_initializer=tf.zeros_initializer(),
-            gamma_initializer=tf.ones_initializer(),
-            moving_mean_initializer=tf.zeros_initializer(),
-            moving_variance_initializer=tf.ones_initializer(),
-            training=training,
-            name='bn7'
-        )
-
-        # apply relu
-        conv7_bn_relu = tf.nn.relu(bn7, name='relu7')
-
-        if dropout:
-            conv7_bn_relu = tf.layers.dropout(conv7_bn_relu, rate=0.1, seed=9, training=training)
-
-    with tf.name_scope('pool7') as scope:
-        # Max pooling layer 7
-        pool7 = tf.layers.max_pooling2d(
-            conv7_bn_relu,  # Input
-            pool_size=(2, 2),  # Pool size: 2x2
-            strides=(2, 2),  # Stride: 2
-            padding='SAME',  # "same" padding
-            name='pool7'
-        )
-
-        if dropout:
-            # dropout at 10%
-            pool7 = tf.layers.dropout(pool7, rate=0.1, seed=1, training=training)
-
     # Flatten output
     with tf.name_scope('flatten') as scope:
-        flat_output = tf.contrib.layers.flatten(pool7)
+        flat_output = tf.contrib.layers.flatten(pool6)
 
         # dropout at 10%
         flat_output = tf.layers.dropout(flat_output, rate=0.5, seed=5, training=training)
@@ -753,6 +704,8 @@ with graph.as_default():
 
     # Merge all the summaries and write them out to /tmp/mnist_logs (by default)
     merged = tf.summary.merge_all()
+
+    print("Graph created...")
 
 # ## Train
 
