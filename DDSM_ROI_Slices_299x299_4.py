@@ -189,8 +189,10 @@ train_files = [train_path_0, train_path_1, train_path_2, train_path_3]
 graph = tf.Graph()
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s0.2.04"
+model_name = "model_s0.2.08"
 # 0.2.01 - trying to do more convolutions at first, and then rapidly decrease dimensionality
+# 0.2.07 - reduced weight for positive examples
+# 0.2.08 - put stride 2 back to conv 2.1
 
 with graph.as_default():
     training = tf.placeholder(dtype=tf.bool, name="is_training")
@@ -304,7 +306,7 @@ with graph.as_default():
             pool1,  # Input data
             filters=96,  # 32 filters
             kernel_size=(3, 3),  # Kernel size: 9x9
-            strides=(2, 2),  # Stride: 1
+            strides=(1, 1),  # Stride: 1
             padding='SAME',  # "same" padding
             activation=None,  # None
             kernel_initializer=tf.truncated_normal_initializer(stddev=5e-2, seed=10),
@@ -338,7 +340,7 @@ with graph.as_default():
             conv2_bn_relu,  # Input data
             filters=96,  # 32 filters
             kernel_size=(3, 3),  # Kernel size: 9x9
-            strides=(1, 1),  # Stride: 1
+            strides=(2, 2),  # Stride: 1
             padding='SAME',  # "same" padding
             activation=None,  # None
             kernel_initializer=tf.truncated_normal_initializer(stddev=5e-2, seed=10),
@@ -371,7 +373,7 @@ with graph.as_default():
     with tf.name_scope('pool2') as scope:
         pool2 = tf.layers.max_pooling2d(
             conv21_bn_relu,  # Input
-            pool_size=(3, 3),  # Pool size: 3x3
+            pool_size=(2, 2),  # Pool size: 3x3
             strides=(2, 2),  # Stride: 2
             padding='SAME',  # "same" padding
             name='pool1'
@@ -659,7 +661,7 @@ with graph.as_default():
     )
 
     # This will weight the positive examples higher so as to improve recall
-    weights = tf.multiply(4, tf.cast(tf.equal(y, 1), tf.int32)) + 1
+    weights = tf.multiply(3, tf.cast(tf.equal(y, 1), tf.int32)) + 1
     # onehot_labels = tf.one_hot(y, depth=num_classes)
     # mean_ce = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=tf.one_hot(y, depth=num_classes), logits=logits, pos_weight=classes_weights))
     # mean_ce = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=logits))

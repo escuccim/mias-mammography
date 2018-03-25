@@ -8,6 +8,7 @@ import re
 import numpy as np
 import os
 from PIL import Image, ImageMath
+from scipy.misc import imresize
 import shutil
 import PIL
 
@@ -310,7 +311,7 @@ def rename_and_copy_files(path, sourcedir="JPEG512", destdir="AllJPEGS512"):
 ## returns: center_row - int with center row of mask, or tuple with edges of the mask if the mask is bigger than the slice
 ##          center_col - idem
 ##          too_big - boolean indicating if the mask is bigger than the slice
-def create_mask(mask_path, slice_size=299, return_size=False):
+def create_mask(mask_path, full_image_arr, slice_size=299, return_size=False):
     # open the mask
     mask = PIL.Image.open(mask_path)
 
@@ -321,9 +322,28 @@ def create_mask(mask_path, slice_size=299, return_size=False):
 
     # turn it into an arry
     mask_arr = np.array(mask)
+    
     # get rid of the extras dimensions
     mask_arr = mask_arr[:,:,0]
-
+    
+    # make sure the mask is the same size as the full image, if not there is a problem, don't use this one
+    if mask_arr.shape != full_image_arr.shape:
+        # see if the ratios are the same
+        mask_ratio = mask_arr.shape[0] / mask_arr.shape[1]
+        image_ratio = full_image_arr.shape[0] / full_image_arr.shape[1]
+        
+        if abs(mask_ratio - image_ratio) <=  1e-03:
+            print("Mishaped mask, resizing mask")
+            
+            # reshape the mask to match the image
+            mask_arr = imresize(mask_arr, full_image_arr.shape)
+            
+        else:
+            print("Mask shape doesn't match image!", mask_path)
+            print("Mask shape:", mask_arr.shape)
+            print("Image shape:", full_image_arr.shape)
+            return 0, 0, False
+    
     # find the borders
     mask_mask = mask_arr == 255
 
