@@ -174,7 +174,8 @@ lamF = 0.00100
 
 # use dropout
 dropout = True
-
+fcdropout_rate = 0.5
+convdropout_rate = 0.1
 num_classes = 2
 
 train_path_0 = os.path.join("data", "training_0.tfrecords")
@@ -219,7 +220,7 @@ with graph.as_default():
         conv1 = tf.layers.conv2d(
             X,  # Input data
             filters=64,  # 32 filters
-            kernel_size=(5, 5),  # Kernel size: 5x5
+            kernel_size=(3, 3),  # Kernel size: 5x5
             strides=(1, 1),  # Stride: 2
             padding='SAME',  # "same" padding
             activation=None,  # None
@@ -228,32 +229,32 @@ with graph.as_default():
             name='conv1'
         )
 
-        conv1 = tf.layers.batch_normalization(
-            conv1,
-            axis=-1,
-            momentum=0.99,
-            epsilon=epsilon,
-            center=True,
-            scale=True,
-            beta_initializer=tf.zeros_initializer(),
-            gamma_initializer=tf.ones_initializer(),
-            moving_mean_initializer=tf.zeros_initializer(),
-            moving_variance_initializer=tf.ones_initializer(),
-            training=training,
-            name='bn1'
-        )
+        #conv1 = tf.layers.batch_normalization(
+        #    conv1,
+        #    axis=-1,
+        #    momentum=0.99,
+        #    epsilon=epsilon,
+        #    center=True,
+        #    scale=True,
+        #    beta_initializer=tf.zeros_initializer(),
+        #    gamma_initializer=tf.ones_initializer(),
+        #    moving_mean_initializer=tf.zeros_initializer(),
+        #    moving_variance_initializer=tf.ones_initializer(),
+        #    training=training,
+        #    name='bn1'
+        #)
 
         # apply relu
         conv1_bn_relu = tf.nn.relu(conv1, name='relu1')
 
         if dropout:
-            conv1_bn_relu = tf.layers.dropout(conv1_bn_relu, rate=0.1, seed=9, training=training)
+            conv1_bn_relu = tf.layers.dropout(conv1_bn_relu, rate=convdropout_rate, seed=9, training=training)
 
     with tf.name_scope('conv1.1') as scope:
         conv11 = tf.layers.conv2d(
             conv1_bn_relu,  # Input data
             filters=64,  # 32 filters
-            kernel_size=(5, 5),  # Kernel size: 5x5
+            kernel_size=(3, 3),  # Kernel size: 5x5
             strides=(1, 1),  # Stride: 2
             padding='SAME',  # "same" padding
             activation=None,  # None
@@ -281,13 +282,13 @@ with graph.as_default():
         conv11_bn_relu = tf.nn.relu(conv11, name='relu1.1')
 
         if dropout:
-            conv11_bn_relu = tf.layers.dropout(conv11_bn_relu, rate=0.1, seed=9, training=training)
+            conv11_bn_relu = tf.layers.dropout(conv11_bn_relu, rate=convdropout_rate, seed=9, training=training)
 
     # Max pooling layer 1
     with tf.name_scope('pool1') as scope:
         pool1 = tf.layers.max_pooling2d(
             conv11_bn_relu,  # Input
-            pool_size=(2, 2),  # Pool size: 3x3
+            pool_size=(3, 3),  # Pool size: 3x3
             strides=(2, 2),  # Stride: 2
             padding='SAME',  # "same" padding
             name='pool1'
@@ -330,7 +331,7 @@ with graph.as_default():
         conv2_bn_relu = tf.nn.relu(conv2, name='relu2')
 
         if dropout:
-            conv2_bn_relu = tf.layers.dropout(conv2_bn_relu, rate=0.1, seed=9, training=training)
+            conv2_bn_relu = tf.layers.dropout(conv2_bn_relu, rate=convdropout_rate, seed=9, training=training)
 
     with tf.name_scope('conv2.1') as scope:
         conv21 = tf.layers.conv2d(
@@ -364,7 +365,7 @@ with graph.as_default():
         conv21_bn_relu = tf.nn.relu(conv21, name='relu2.1')
 
         if dropout:
-            conv21_bn_relu = tf.layers.dropout(conv21_bn_relu, rate=0.1, seed=9, training=training)
+            conv21_bn_relu = tf.layers.dropout(conv21_bn_relu, rate=convdropout_rate, seed=9, training=training)
 
     # Max pooling layer 2
     with tf.name_scope('pool2') as scope:
@@ -413,7 +414,7 @@ with graph.as_default():
         conv3_bn_relu = tf.nn.relu(bn3, name='relu3')
 
         if dropout:
-            conv3_bn_relu = tf.layers.dropout(conv3_bn_relu, rate=0.1, seed=9, training=training)
+            conv3_bn_relu = tf.layers.dropout(conv3_bn_relu, rate=convdropout_rate, seed=9, training=training)
 
     # Max pooling layer 3
     with tf.name_scope('pool3') as scope:
@@ -462,7 +463,7 @@ with graph.as_default():
         conv4_bn_relu = tf.nn.relu(bn4, name='relu4')
 
         if dropout:
-            conv4_bn_relu = tf.layers.dropout(conv4_bn_relu, rate=0.1, seed=9, training=training)
+            conv4_bn_relu = tf.layers.dropout(conv4_bn_relu, rate=convdropout_rate, seed=9, training=training)
 
     # Max pooling layer 4
     with tf.name_scope('pool4') as scope:
@@ -511,7 +512,7 @@ with graph.as_default():
         conv5_bn_relu = tf.nn.relu(bn5, name='relu5')
 
         if dropout:
-            conv5_bn_relu = tf.layers.dropout(conv5_bn_relu, rate=0.1, seed=9, training=training)
+            conv5_bn_relu = tf.layers.dropout(conv5_bn_relu, rate=convdropout_rate, seed=9, training=training)
 
     # Max pooling layer 5
     with tf.name_scope('pool5') as scope:
@@ -560,7 +561,7 @@ with graph.as_default():
         conv6_bn_relu = tf.nn.relu(bn6, name='relu6')
 
         if dropout:
-            conv6_bn_relu = tf.layers.dropout(conv6_bn_relu, rate=0.1, seed=9, training=training)
+            conv6_bn_relu = tf.layers.dropout(conv6_bn_relu, rate=convdropout_rate, seed=9, training=training)
 
     with tf.name_scope('pool6') as scope:
         # Max pooling layer 6
@@ -574,14 +575,14 @@ with graph.as_default():
 
         if dropout:
             # dropout at 10%
-            pool6 = tf.layers.dropout(pool6, rate=0.1, seed=1, training=training)
+            pool6 = tf.layers.dropout(pool6, rate=convdropout_rate, seed=1, training=training)
 
     # Flatten output
     with tf.name_scope('flatten') as scope:
         flat_output = tf.contrib.layers.flatten(pool6)
 
         # dropout at 10%
-        flat_output = tf.layers.dropout(flat_output, rate=0.5, seed=5, training=training)
+        flat_output = tf.layers.dropout(flat_output, rate=fcdropout_rate, seed=5, training=training)
 
     # Fully connected layer 1
     with tf.name_scope('fc1') as scope:
@@ -612,8 +613,8 @@ with graph.as_default():
 
         fc1_relu = tf.nn.relu(bn_fc1, name='fc1_relu')
 
-        # dropout at 25%
-        fc1_relu = tf.layers.dropout(fc1_relu, rate=0.75, seed=10, training=training)
+        # dropout at 75%
+        fc1_relu = tf.layers.dropout(fc1_relu, rate=fcdropout_rate, seed=10, training=training)
 
     # Fully connected layer 2
     with tf.name_scope('fc2') as scope:
@@ -644,8 +645,8 @@ with graph.as_default():
 
         fc2_relu = tf.nn.relu(bn_fc2, name='fc2_relu')
 
-        # dropout at 10%
-        fc2_relu = tf.layers.dropout(fc2_relu, rate=0.75, seed=11, training=training)
+        # dropout at 75%
+        fc2_relu = tf.layers.dropout(fc2_relu, rate=fcdropout_rate, seed=11, training=training)
 
     # Output layer
     logits = tf.layers.dense(
@@ -697,7 +698,7 @@ with graph.as_default():
 
     # Create summary hooks
     tf.summary.scalar('accuracy', accuracy)
-    tf.summary.scalar('recall', recall)
+    tf.summary.scalar('recall_1', recall)
     tf.summary.scalar('cross_entropy', mean_ce)
     tf.summary.scalar('loss', loss)
     tf.summary.scalar('learning_rate', learning_rate)

@@ -331,6 +331,7 @@ def create_mask(mask_path, slice_size=299, return_size=False):
     cols = np.sum(mask_mask, axis=0)
     rows = np.sum(mask_mask, axis=1)
 
+    # figure out where the corners are
     first_col = np.argmax(cols > 0)
     last_col = mask_arr.shape[1] - np.argmax(np.flip(cols, axis=0) > 0)
     center_col = int((first_col + last_col) / 2)
@@ -349,9 +350,9 @@ def create_mask(mask_path, slice_size=299, return_size=False):
     if (last_col - first_col > slice_size) or (last_row - first_row > slice_size):
         # since it seems that masses are best defined by their edges, if the mask is bigger than the slice
         # return tuples defining the corners of the mask. We will use those to create two slices containing 
-        # borders for the mass
-        center_col = (first_col, last_col)
-        center_row = (first_row, last_row)
+        # borders for the mass - and give a 10 pixel border on each side so we can see the edges
+        center_col = (first_col - 10, last_col + 10)
+        center_row = (first_row - 10, last_row + 10)
         too_big = True
     
     # optionally return the largest side of the squared mask
