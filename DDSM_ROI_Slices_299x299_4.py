@@ -189,11 +189,12 @@ train_files = [train_path_0, train_path_1, train_path_2, train_path_3]
 graph = tf.Graph()
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s0.2.09"
+model_name = "model_s0.2.10"
 # 0.2.01 - trying to do more convolutions at first, and then rapidly decrease dimensionality
 # 0.2.07 - reduced weight for positive examples
 # 0.2.08 - put stride 2 back to conv 2.1
 # 0.2.09 - removed batch norm after conv 2 to save memory
+# 0.2.10 - put stride of 2 from conv 2.1 to conv 3
 
 with graph.as_default():
     training = tf.placeholder(dtype=tf.bool, name="is_training")
@@ -341,7 +342,7 @@ with graph.as_default():
             conv2_bn_relu,  # Input data
             filters=96,  # 32 filters
             kernel_size=(3, 3),  # Kernel size: 9x9
-            strides=(2, 2),  # Stride: 1
+            strides=(1, 1),  # Stride: 1
             padding='SAME',  # "same" padding
             activation=None,  # None
             kernel_initializer=tf.truncated_normal_initializer(stddev=5e-2, seed=10),
@@ -390,7 +391,7 @@ with graph.as_default():
             pool2,  # Input data
             filters=128,  # 48 filters
             kernel_size=(3, 3),  # Kernel size: 5x5
-            strides=(1, 1),  # Stride: 1
+            strides=(2, 2),  # Stride: 1
             padding='SAME',  # "same" padding
             activation=None,  # None
             kernel_initializer=tf.truncated_normal_initializer(stddev=5e-2, seed=10),
@@ -661,6 +662,13 @@ with graph.as_default():
         name="logits"
     )
 
+    with tf.variable_scope('conv1', reuse=True):
+        conv_kernels1 = tf.get_variable('kernel')
+        kernel_transposed = tf.transpose(conv_kernels1, [3, 0, 1, 2])
+
+    with tf.variable_scope('visualization'):
+        tf.summary.image('conv1/filters', kernel_transposed, max_outputs=32)
+
     # This will weight the positive examples higher so as to improve recall
     weights = tf.multiply(3, tf.cast(tf.equal(y, 1), tf.int32)) + 1
     # onehot_labels = tf.one_hot(y, depth=num_classes)
@@ -719,7 +727,7 @@ crop = False                  # do random cropping of images?
 
 meta_data_every = 1
 log_to_tensorboard = True
-print_every = 3                # how often to print metrics
+print_every = 1                # how often to print metrics
 checkpoint_every = 1           # how often to save model in epochs
 use_gpu = False                 # whether or not to use the GPU
 print_metrics = True          # whether to print or plot metrics, if False a plot will be created and updated every epoch
@@ -804,6 +812,7 @@ with tf.Session(graph=graph, config=config) as sess:
             # write the summary
             if log_to_tensorboard:
                 train_writer.add_summary(summary, step)
+                train_writer.add_run_metadata(run_metadata, 'step %d' % step)
 
         # save checkpoint every nth epoch
         if(epoch % checkpoint_every == 0):

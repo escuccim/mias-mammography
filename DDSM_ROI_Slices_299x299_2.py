@@ -188,7 +188,7 @@ train_files = [train_path_0, train_path_1, train_path_2, train_path_3]
 graph = tf.Graph()
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s0.0.17"
+model_name = "model_s0.0.18"
 # 0.0.2 - reducing size of model to avoid runtime crashing
 # 0.0.4 - increasing model size since we have memory now
 # 0.0.9 - added pool0 between conv1 and conv2
@@ -197,6 +197,7 @@ model_name = "model_s0.0.17"
 # 0.0.14 - try weighted cross entropy to improve recall
 # 0.0.15 - increase batch size
 # 0.0.17 - per example weighting to improve recall
+# 0.0.18 - increase filter size for conv1, give it a stride of 2 and add another conv layer between conv1 and pool1
 
 with graph.as_default():
     training = tf.placeholder(dtype=tf.bool, name="is_training")
@@ -226,8 +227,8 @@ with graph.as_default():
         conv1 = tf.layers.conv2d(
             X,  # Input data
             filters=32,  # 32 filters
-            kernel_size=(5, 5),  # Kernel size: 5x5
-            strides=(1, 1),  # Stride: 2
+            kernel_size=(7, 7),  # Kernel size: 5x5
+            strides=(2, 2),  # Stride: 2
             padding='SAME',  # "same" padding
             activation=None,  # None
             kernel_initializer=tf.truncated_normal_initializer(stddev=5e-2, seed=10),
@@ -256,10 +257,44 @@ with graph.as_default():
         if dropout:
             conv1_bn_relu = tf.layers.dropout(conv1_bn_relu, rate=0.1, seed=9, training=training)
 
+    with tf.name_scope('conv1.1') as scope:
+        conv11 = tf.layers.conv2d(
+            conv1_bn_relu,  # Input data
+            filters=32,  # 32 filters
+            kernel_size=(5, 5),  # Kernel size: 5x5
+            strides=(1, 1),  # Stride: 2
+            padding='SAME',  # "same" padding
+            activation=None,  # None
+            kernel_initializer=tf.truncated_normal_initializer(stddev=5e-2, seed=10),
+            kernel_regularizer=tf.contrib.layers.l2_regularizer(scale=lamC),
+            name='conv1.1'
+        )
+
+        conv11 = tf.layers.batch_normalization(
+            conv11,
+            axis=-1,
+            momentum=0.99,
+            epsilon=epsilon,
+            center=True,
+            scale=True,
+            beta_initializer=tf.zeros_initializer(),
+            gamma_initializer=tf.ones_initializer(),
+            moving_mean_initializer=tf.zeros_initializer(),
+            moving_variance_initializer=tf.ones_initializer(),
+            training=training,
+            name='bn1.1'
+        )
+
+        # apply relu
+        conv11_bn_relu = tf.nn.relu(conv11, name='relu1.1')
+
+        if dropout:
+            conv11_bn_relu = tf.layers.dropout(conv11_bn_relu, rate=0.1, seed=9, training=training)
+
     # Max pooling layer 1
     with tf.name_scope('pool1') as scope:
         pool1 = tf.layers.max_pooling2d(
-            conv1_bn_relu,  # Input
+            conv11_bn_relu,  # Input
             pool_size=(3, 3),  # Pool size: 3x3
             strides=(2, 2),  # Stride: 2
             padding='SAME',  # "same" padding
@@ -645,6 +680,13 @@ with graph.as_default():
         name="logits"
     )
 
+    with tf.variable_scope('conv1', reuse=True):
+        conv_kernels1 = tf.get_variable('kernel')
+        kernel_transposed = tf.transpose(conv_kernels1, [3, 0, 1, 2])
+
+    with tf.variable_scope('visualization'):
+        tf.summary.image('conv1/filters', kernel_transposed, max_outputs=32)
+
     # This will weight the positive examples higher so as to improve recall
     weights = tf.multiply(4, tf.cast(tf.equal(y, 1), tf.int32)) + 1
     # onehot_labels = tf.one_hot(y, depth=num_classes)
@@ -685,7 +727,7 @@ with graph.as_default():
 
     # Create summary hooks
     tf.summary.scalar('accuracy', accuracy)
-    tf.summary.scalar('recall', recall)
+    tf.summary.scalar('recall_1', recall)
     tf.summary.scalar('cross_entropy', mean_ce)
     tf.summary.scalar('loss', loss)
     tf.summary.scalar('learning_rate', learning_rate)
