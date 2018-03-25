@@ -189,10 +189,11 @@ train_files = [train_path_0, train_path_1, train_path_2, train_path_3]
 graph = tf.Graph()
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s0.2.08"
+model_name = "model_s0.2.09"
 # 0.2.01 - trying to do more convolutions at first, and then rapidly decrease dimensionality
 # 0.2.07 - reduced weight for positive examples
 # 0.2.08 - put stride 2 back to conv 2.1
+# 0.2.09 - removed batch norm after conv 2 to save memory
 
 with graph.as_default():
     training = tf.placeholder(dtype=tf.bool, name="is_training")
@@ -314,20 +315,20 @@ with graph.as_default():
             name='conv2'
         )
 
-        conv2 = tf.layers.batch_normalization(
-            conv2,
-            axis=-1,
-            momentum=0.99,
-            epsilon=epsilon,
-            center=True,
-            scale=True,
-            beta_initializer=tf.zeros_initializer(),
-            gamma_initializer=tf.ones_initializer(),
-            moving_mean_initializer=tf.zeros_initializer(),
-            moving_variance_initializer=tf.ones_initializer(),
-            training=training,
-            name='bn2'
-        )
+        #conv2 = tf.layers.batch_normalization(
+        #    conv2,
+        #    axis=-1,
+        #    momentum=0.99,
+        #    epsilon=epsilon,
+        #    center=True,
+        #    scale=True,
+        #    beta_initializer=tf.zeros_initializer(),
+        #    gamma_initializer=tf.ones_initializer(),
+        #    moving_mean_initializer=tf.zeros_initializer(),
+        #    moving_variance_initializer=tf.ones_initializer(),
+        #    training=training,
+        #    name='bn2'
+        #)
 
         # apply relu
         conv2_bn_relu = tf.nn.relu(conv2, name='relu2')

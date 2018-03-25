@@ -333,7 +333,7 @@ def create_mask(mask_path, full_image_arr, slice_size=299, return_size=False):
         image_ratio = full_image_arr.shape[0] / full_image_arr.shape[1]
         
         if abs(mask_ratio - image_ratio) <=  1e-03:
-            print("Mishaped mask, resizing mask")
+            print("Mishaped mask, resizing mask", mask_path)
             
             # reshape the mask to match the image
             mask_arr = imresize(mask_arr, full_image_arr.shape)
