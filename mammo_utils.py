@@ -36,9 +36,6 @@ def read_pgm(filename, byteorder='>'):
     
     image_id = int(re.findall('([\d]+)\.', filename)[0])
     
-    if image_id % 2 != 0:
-        image = np.fliplr(image)
-        
     return image
 
 
@@ -179,59 +176,6 @@ def resize_image(img, new_size):
     return img2
 
 
-# In[10]:
-
-
-## Loads a PNG image, converts it to an RGB numpy array, slices it into tiles and returns the tiles which contain usable images
-## Var and Mean thresholds can be used to only keep images with usable information in them.
-## Inputs: path - path to image
-##         var_threshold - only keep images with a variance BELOW this
-##         mean_threshold - only keep images with a mean ABOVE this
-
-def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_threshold=0):
-    # load the image
-    img = PIL.Image.open(path)
-    
-    # convert the image to RGB
-    img = PIL.ImageMath.eval('im/256', {'im':img}).convert('L')
-    
-    # size the image down by half
-    h, w = img.size
-    new_size = ( h // 2, w // 2)
-    img.thumbnail(new_size, PIL.Image.ANTIALIAS)
-    
-    # convert to an array
-    img = np.array(img)
-    
-    # remove white pixels, this will prevent images which contain text or white patches from being used
-    img[img > 225] = 0
-    
-    # remove 7% from each side of image to eliminate borders
-    h, w = img.shape
-    hmargin = int(h * 0.07)
-    wmargin = int(w * 0.07)
-    img = img[hmargin:h-hmargin, wmargin:w-wmargin]
-    
-    # slice the image into 299x299 tiles
-    size = 299
-    tiles = [img[x:x+size,y:y+size] for x in range(0,img.shape[0],size) for y in range(0,img.shape[1],size)]
-    usable_tiles = []
-    
-    # for each tile:
-    for i in range(len(tiles)):
-        # make sure tile has correct shape
-        if tiles[i].shape == (size,size):
-            # make sure tile has stuff in it
-            if np.mean(tiles[i]) >= mean_threshold:
-                # make sure the tile contains image and not mostly empty space
-                if np.var(tiles[i]) <= var_upper_threshold:
-                    if np.var(tiles[i]) >= var_lower_threshold:
-                        # reshape the tile so they will work with the convnet
-                        usable_tiles.append(tiles[i].reshape(299,299,1))
-            
-    return usable_tiles
-
-
 # In[11]:
 
 
@@ -301,6 +245,18 @@ def rename_and_copy_files(path, sourcedir="JPEG512", destdir="AllJPEGS512"):
         i += 1
 
 
+# In[ ]:
+
+
+## function to trim pixels off all sides of an image, should help to remove white borders and such
+def remove_margins(image_arr, margin=20):
+    h, w = image_arr.shape
+    
+    new_image = image_arr[margin:h-margin,margin:w-margin]
+    
+    return new_image
+
+
 # In[12]:
 
 
@@ -311,10 +267,10 @@ def rename_and_copy_files(path, sourcedir="JPEG512", destdir="AllJPEGS512"):
 ## returns: center_row - int with center row of mask, or tuple with edges of the mask if the mask is bigger than the slice
 ##          center_col - idem
 ##          too_big - boolean indicating if the mask is bigger than the slice
-def create_mask(mask_path, full_image_arr, slice_size=299, return_size=False):
+def create_mask(mask_path, full_image_arr, slice_size=598, return_size=False):
     # open the mask
     mask = PIL.Image.open(mask_path)
-
+    
     # cut the image in half
     h, w = mask.size
     new_size = ( h // 2, w // 2)
@@ -326,6 +282,13 @@ def create_mask(mask_path, full_image_arr, slice_size=299, return_size=False):
     # get rid of the extras dimensions
     mask_arr = mask_arr[:,:,0]
     
+    # some images have white on the borders which may be something a convnet can use to predict. To prevent this,
+    # if the full image has more than 50,000 white pixels we will trim the edges by 20 pixels on either side
+    if np.sum(np.sum(full_image_arr >= 245)) > 20000:
+        full_image_arr = remove_margins(full_image_arr)
+        mask_arr = remove_margins(mask_arr)
+        print("Trimming borders", mask_path)
+        
     # make sure the mask is the same size as the full image, if not there is a problem, don't use this one
     if mask_arr.shape != full_image_arr.shape:
         # see if the ratios are the same
@@ -342,7 +305,7 @@ def create_mask(mask_path, full_image_arr, slice_size=299, return_size=False):
             print("Mask shape doesn't match image!", mask_path)
             print("Mask shape:", mask_arr.shape)
             print("Image shape:", full_image_arr.shape)
-            return 0, 0, False
+            return 0, 0, False, full_image_arr, 0
     
     # find the borders
     mask_mask = mask_arr == 255
@@ -367,7 +330,7 @@ def create_mask(mask_path, full_image_arr, slice_size=299, return_size=False):
     
     # signal if the mask is bigger than the slice
     too_big = False
-    if (last_col - first_col > slice_size) or (last_row - first_row > slice_size):
+    if (last_col - first_col > slice_size + 10) or (last_row - first_row > slice_size + 10):
         # since it seems that masses are best defined by their edges, if the mask is bigger than the slice
         # return tuples defining the corners of the mask. We will use those to create two slices containing 
         # borders for the mass - and give a 10 pixel border on each side so we can see the edges
@@ -375,11 +338,8 @@ def create_mask(mask_path, full_image_arr, slice_size=299, return_size=False):
         center_row = (first_row - 10, last_row + 10)
         too_big = True
     
-    # optionally return the largest side of the squared mask
-    if return_size:
-        return center_row, center_col, too_big, mask_size
-    else:
-        return center_row, center_col, too_big
+  
+    return center_row, center_col, too_big, full_image_arr, mask_size
 
 
 # In[ ]:
@@ -421,4 +381,58 @@ def create_slices(path, output=True, var_upper_threshhold=0, var_lower_threshhol
     assert(len(normal_slices) == len(normal_labels))
     
     return np.array(normal_slices), np.array(normal_labels)
+
+
+# In[10]:
+
+
+## Loads a PNG image, converts it to an RGB numpy array, slices it into tiles and returns the tiles which contain usable images
+## Var and Mean thresholds can be used to only keep images with usable information in them.
+## Inputs: path - path to image
+##         var_threshold - only keep images with a variance BELOW this
+##         mean_threshold - only keep images with a mean ABOVE this
+
+def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_threshold=0):
+    # load the image
+    img = PIL.Image.open(path)
+    
+    # convert the image to RGB
+    img = PIL.ImageMath.eval('im/256', {'im':img}).convert('L')
+    
+    # size the image down by half
+    h, w = img.size
+    new_size = ( h // 2, w // 2)
+    img.thumbnail(new_size, PIL.Image.ANTIALIAS)
+    
+    # convert to an array
+    img = np.array(img)
+    
+    # remove white pixels, this will prevent images which contain text or white patches from being used
+    # img[img > 225] = 0
+    
+    # remove 7% from each side of image to eliminate borders
+    h, w = img.shape
+    hmargin = int(h * 0.07)
+    wmargin = int(w * 0.07)
+    img = img[hmargin:h-hmargin, wmargin:w-wmargin]
+    
+    # slice the image into 299x299 tiles
+    size = 299
+    tiles = [img[x:x+size,y:y+size] for x in range(0,img.shape[0],size) for y in range(0,img.shape[1],size)]
+    usable_tiles = []
+    
+    # for each tile:
+    for i in range(len(tiles)):
+        # make sure tile has correct shape
+        if tiles[i].shape == (size,size):
+            if np.sum(np.sum(tiles[i] >= 225)) < 100:
+                # make sure tile has stuff in it
+                if np.mean(tiles[i]) >= mean_threshold:
+                    # make sure the tile contains image and not mostly empty space
+                    if np.var(tiles[i]) <= var_upper_threshold:
+                        if np.var(tiles[i]) >= var_lower_threshold:
+                            # reshape the tile so they will work with the convnet
+                            usable_tiles.append(tiles[i].reshape(299,299,1))
+
+    return usable_tiles
 
