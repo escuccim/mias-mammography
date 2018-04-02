@@ -6,13 +6,14 @@ import tensorflow as tf
 
 ## download a file to a location in the data folder
 def download_file(url, name):
-    print("Downloading " + name + "...")
+    print("\nDownloading " + name + "...")
 
     # check that the data directory exists
     try:
         os.stat("data")
     except:
         os.mkdir("data")
+
     fname = wget.download(url, os.path.join('data', name))
 
 
@@ -37,7 +38,7 @@ def get_batches(X, y, batch_size, distort=True):
 
 
 ## read data from tfrecords file
-def read_and_decode_single_example(filenames, label_type='label_normal', normalize=True, num_epochs=None):
+def read_and_decode_single_example(filenames, label_type='label_normal', normalize=False, num_epochs=None):
     filename_queue = tf.train.string_input_producer(filenames, num_epochs=num_epochs)
 
     reader = tf.TFRecordReader()
