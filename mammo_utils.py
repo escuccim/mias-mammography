@@ -391,7 +391,6 @@ def create_slices(path, output=True, var_upper_threshhold=0, var_lower_threshhol
 ## Inputs: path - path to image
 ##         var_threshold - only keep images with a variance BELOW this
 ##         mean_threshold - only keep images with a mean ABOVE this
-
 def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_threshold=0):
     # load the image
     img = PIL.Image.open(path)
@@ -406,9 +405,6 @@ def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_
     
     # convert to an array
     img = np.array(img)
-    
-    # remove white pixels, this will prevent images which contain text or white patches from being used
-    # img[img > 225] = 0
     
     # remove 7% from each side of image to eliminate borders
     h, w = img.shape
@@ -425,7 +421,8 @@ def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_
     for i in range(len(tiles)):
         # make sure tile has correct shape
         if tiles[i].shape == (size,size):
-            if np.sum(np.sum(tiles[i] >= 225)) < 100:
+            # make sure the tile doesn't have too many white or black pixels, that indicates it is not useful
+            if (np.sum(np.sum(tiles[i] >= 225)) < 100) and (np.sum(np.sum(tiles[i] <= 20)) <= 50000):
                 # make sure tile has stuff in it
                 if np.mean(tiles[i]) >= mean_threshold:
                     # make sure the tile contains image and not mostly empty space

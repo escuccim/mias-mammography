@@ -1,0 +1,27 @@
+1. List masks
+2. For each mask:
+    a. Get image name
+    b. Open the full image
+    c. Scale the image to half size
+    d. Turn the image to an array
+    e. Get the mask
+        1. Open mask file
+        2. Half the mask
+        3. If mask has too much white in it trim the edges
+        4. Does the shape of the mask match the image?
+            i. No - try to resize the mask to match
+            ii. If ratio isn't right skip
+        5. Figure out borders of mask
+        6. Is mask bigger than slice?
+            i. No, return center of mask
+            ii. Yes - return corners of mask with 10 pixel margin
+    f. If the mask will fit into one slice create the slice from the center
+    g. Else:
+        1. Zoom the ROI out so it will fit into a slice
+        2. Create corners of slice
+        3. If the mask is too wide slice from each horizontal corners
+        4. If mask is too high slice from each vertical corners
+    h. If main slice goes over edges of image try to recenter it so it fits
+        1. If slice is right size add to list
+    i. If the mask is too small zoom in and add to the list
+    j. For each slice if the dimensions are right add it to the list
