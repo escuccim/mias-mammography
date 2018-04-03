@@ -11,6 +11,7 @@ from PIL import Image, ImageMath
 from scipy.misc import imresize
 import shutil
 import PIL
+import sys
 
 ## import PGM files and return a numpy array
 def read_pgm(filename, byteorder='>'):
@@ -228,8 +229,9 @@ def rename_and_copy_files(path, sourcedir="JPEG512", destdir="AllJPEGS512"):
             # rename the file so we know where it came from
             # some of the data is not properly labeled, if that is the case skip it since we won't be able to label it
             try:
-                new_name = path+'/'+patient_id+'_'+image_side+'_'+image_type+'.jpg'
-                os.rename(path+'/'+file, new_name)
+                new_name = patient_id+'_'+image_side+'_'+image_type+'.jpg'
+                new_path = path + new_name
+                os.rename(path+'/'+file, new_path)
             except:
                 continue
                 
@@ -239,7 +241,7 @@ def rename_and_copy_files(path, sourcedir="JPEG512", destdir="AllJPEGS512"):
             except:
                 os.mkdir(destination_path)  
             
-            # copy the files so they are all in one directory
+            ## copy the files so they are all in one directory
             shutil.copy(new_name, destination_path)
 
         i += 1
@@ -267,14 +269,15 @@ def remove_margins(image_arr, margin=20):
 ## returns: center_row - int with center row of mask, or tuple with edges of the mask if the mask is bigger than the slice
 ##          center_col - idem
 ##          too_big - boolean indicating if the mask is bigger than the slice
-def create_mask(mask_path, full_image_arr, slice_size=598, return_size=False):
+def create_mask(mask_path, full_image_arr, slice_size=598, return_size=False, half=True, output=True):
     # open the mask
     mask = PIL.Image.open(mask_path)
     
     # cut the image in half
-    h, w = mask.size
-    new_size = ( h // 2, w // 2)
-    mask.thumbnail(new_size, PIL.Image.ANTIALIAS)
+    if half:
+        h, w = mask.size
+        new_size = ( h // 2, w // 2)
+        mask.thumbnail(new_size, PIL.Image.ANTIALIAS)
 
     # turn it into an arry
     mask_arr = np.array(mask)
@@ -287,7 +290,8 @@ def create_mask(mask_path, full_image_arr, slice_size=598, return_size=False):
     if np.sum(np.sum(full_image_arr >= 245)) > 20000:
         full_image_arr = remove_margins(full_image_arr)
         mask_arr = remove_margins(mask_arr)
-        print("Trimming borders", mask_path)
+        if output:
+            print("Trimming borders", mask_path)
         
     # make sure the mask is the same size as the full image, if not there is a problem, don't use this one
     if mask_arr.shape != full_image_arr.shape:
@@ -326,16 +330,16 @@ def create_mask(mask_path, full_image_arr, slice_size=598, return_size=False):
     col_size = last_col - first_col
     row_size = last_row - first_row
     
-    mask_size = np.max([col_size, row_size])
+    mask_size = [row_size, col_size]
     
     # signal if the mask is bigger than the slice
     too_big = False
-    if (last_col - first_col > slice_size + 10) or (last_row - first_row > slice_size + 10):
+    if (last_col - first_col > slice_size + 30) or (last_row - first_row > slice_size + 30):
         # since it seems that masses are best defined by their edges, if the mask is bigger than the slice
         # return tuples defining the corners of the mask. We will use those to create two slices containing 
         # borders for the mass - and give a 10 pixel border on each side so we can see the edges
-        center_col = (first_col - 10, last_col + 10)
-        center_row = (first_row - 10, last_row + 10)
+        #center_col = (first_col - 15, last_col + 15)
+        #center_row = (first_row - 15, last_row + 15)
         too_big = True
     
   
@@ -432,4 +436,43 @@ def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_
                             usable_tiles.append(tiles[i].reshape(299,299,1))
 
     return usable_tiles
+
+
+# In[ ]:
+
+
+## create a random offset for slices to have some variety in the data
+def get_fuzzy_offset(roi_size, slice_size=299):
+    fuzz_factor = (slice_size - roi_size - 20) // 2
+    
+    if fuzz_factor <= 0:
+        fuzz_factor = 1
+    
+    fuzz_sign_h = np.random.binomial(1,0.5)
+    fuzz_sign_w = np.random.binomial(1,0.5)
+
+    fuzz_offset_w = np.random.randint(low=0, high=fuzz_factor)
+    if fuzz_sign_w == 0:
+        fuzz_offset_w = 0 - fuzz_offset_w
+
+    fuzz_offset_h = np.random.randint(low=0, high=fuzz_factor)
+    if fuzz_sign_h == 0:
+        fuzz_offset_h = 0 - fuzz_offset_h
+    
+    return fuzz_offset_h, fuzz_offset_w
+
+
+# In[ ]:
+
+
+## Progress bar taken from https://gist.github.com/vladignatyev/06860ec2040cb497f0f3
+def progress(count, total, status=''):
+    bar_len = 60
+    filled_len = int(round(bar_len * count / float(total)))
+
+    percents = round(100.0 * count / float(total), 1)
+    bar = '=' * filled_len + '-' * (bar_len - filled_len)
+
+    sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
+    sys.stdout.flush()  # As suggested by Rom Ruben (see: http://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console/27871113#comment50529068_27871113)
 
