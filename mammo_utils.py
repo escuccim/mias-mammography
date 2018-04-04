@@ -287,7 +287,7 @@ def create_mask(mask_path, full_image_arr, slice_size=598, return_size=False, ha
     
     # some images have white on the borders which may be something a convnet can use to predict. To prevent this,
     # if the full image has more than 50,000 white pixels we will trim the edges by 20 pixels on either side
-    if np.sum(np.sum(full_image_arr >= 245)) > 20000:
+    if np.sum(np.sum(full_image_arr >= 225)) > 20000:
         full_image_arr = remove_margins(full_image_arr)
         mask_arr = remove_margins(mask_arr)
         if output:
@@ -300,15 +300,17 @@ def create_mask(mask_path, full_image_arr, slice_size=598, return_size=False, ha
         image_ratio = full_image_arr.shape[0] / full_image_arr.shape[1]
         
         if abs(mask_ratio - image_ratio) <=  1e-03:
-            print("Mishaped mask, resizing mask", mask_path)
+            if output:
+                print("Mishaped mask, resizing mask", mask_path)
             
             # reshape the mask to match the image
             mask_arr = imresize(mask_arr, full_image_arr.shape)
             
         else:
+            if output:
+                print("Mask shape:", mask_arr.shape)
+                print("Image shape:", full_image_arr.shape)
             print("Mask shape doesn't match image!", mask_path)
-            print("Mask shape:", mask_arr.shape)
-            print("Image shape:", full_image_arr.shape)
             return 0, 0, False, full_image_arr, 0
     
     # find the borders
@@ -334,12 +336,8 @@ def create_mask(mask_path, full_image_arr, slice_size=598, return_size=False, ha
     
     # signal if the mask is bigger than the slice
     too_big = False
+    
     if (last_col - first_col > slice_size + 30) or (last_row - first_row > slice_size + 30):
-        # since it seems that masses are best defined by their edges, if the mask is bigger than the slice
-        # return tuples defining the corners of the mask. We will use those to create two slices containing 
-        # borders for the mass - and give a 10 pixel border on each side so we can see the edges
-        #center_col = (first_col - 15, last_col + 15)
-        #center_row = (first_row - 15, last_row + 15)
         too_big = True
     
   
