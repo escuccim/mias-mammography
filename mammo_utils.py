@@ -186,6 +186,12 @@ def rename_and_copy_files(path, sourcedir="JPEG512", destdir="AllJPEGS512"):
     directories = os.listdir(path+sourcedir)
     source_path = path + sourcedir + "/"
     destination_path = path + destdir + "/"
+                    
+    # make sure the destination directory exists
+    try:
+        os.stat(destination_path)
+    except:
+        os.mkdir(destination_path)  
     
     # keep a counter so each file has a unique name
     i = 1
@@ -230,19 +236,18 @@ def rename_and_copy_files(path, sourcedir="JPEG512", destdir="AllJPEGS512"):
             # some of the data is not properly labeled, if that is the case skip it since we won't be able to label it
             try:
                 new_name = patient_id+'_'+image_side+'_'+image_type+'.jpg'
+                
+                # if the file already exists in the final destination, rename it
+                if os.path.exists(destination_path + new_name):
+                    new_name = patient_id+'_'+image_side+'_'+image_type+'_1.jpg'
+                
                 new_path = path + new_name
                 os.rename(path+'/'+file, new_path)
             except:
                 continue
-                
-            # make sure the destination directory exists
-            try:
-                os.stat(destination_path)
-            except:
-                os.mkdir(destination_path)  
             
             ## copy the files so they are all in one directory
-            shutil.copy(new_name, destination_path)
+            shutil.copy(new_path, destination_path)
 
         i += 1
 
@@ -292,7 +297,7 @@ def create_mask(mask_path, full_image_arr, slice_size=598, return_size=False, ha
         mask_arr = remove_margins(mask_arr)
         if output:
             print("Trimming borders", mask_path)
-        
+            
     # make sure the mask is the same size as the full image, if not there is a problem, don't use this one
     if mask_arr.shape != full_image_arr.shape:
         # see if the ratios are the same
@@ -473,4 +478,54 @@ def progress(count, total, status=''):
 
     sys.stdout.write('[%s] %s%s ...%s\r' % (bar, percents, '%', status))
     sys.stdout.flush()  # As suggested by Rom Ruben (see: http://stackoverflow.com/questions/3173320/text-progress-bar-in-the-console/27871113#comment50529068_27871113)
+
+
+# In[ ]:
+
+
+## randomly flip an image left-right, up-down or both and return it
+def random_flip_image(img):
+    fliplr = np.random.binomial(1,0.5)
+    flipud = np.random.binomial(1,0.5)
+    
+    if fliplr:
+        img = np.flip(img, 1)
+    if flipud:
+        img = np.flip(img, 0)
+        
+    return img
+
+
+# In[ ]:
+
+
+def get_roi_edges(center_col, center_row, img_height, img_width, fuzz_offset_w=0, fuzz_offset_h=0, scale_factor=1, slice_size=299):
+    # slice margin
+    slice_margin = slice_size // 2
+    
+    # figure out the new center of the ROI
+    center_col_scaled = int(center_col * scale_factor)
+    center_row_scaled = int(center_row * scale_factor)
+    
+    start_col = int(center_col_scaled - slice_margin + fuzz_offset_h)
+    end_col = int(start_col + slice_size)
+    
+    if start_col < 0:
+        start_col = 0
+        end_col = slice_size
+    elif end_col > img_width:
+        end_col = img_width
+        start_col = int(img_width - slice_size)
+        
+    start_row = int(center_row_scaled - slice_margin + fuzz_offset_w)
+    end_row = int(start_row + slice_size)
+    
+    if start_row < 0:
+        start_row = 0
+        end_row = slice_size
+    elif end_row > img_height:
+        end_row = img_height
+        start_row = int(img_height - slice_size)
+     
+    return start_row, end_row, start_col, end_col
 
