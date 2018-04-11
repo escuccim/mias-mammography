@@ -367,7 +367,7 @@ def half_image(image):
 
 ## function to read images contained in a directory, create slices from them and return a numpy array of the slices
 ## with labels. The threshholds are used to filter out images which are not usable or interesting. 
-def create_slices(path, output=True, var_upper_threshhold=0, var_lower_threshhold=0, mean_threshold=0):
+def create_slices(path, output=True, var_upper_threshhold=0, var_lower_threshhold=0, mean_threshold=0, stride=200):
     files = os.listdir(path)
     normal_slices = []
     normal_labels = []
@@ -377,7 +377,7 @@ def create_slices(path, output=True, var_upper_threshhold=0, var_lower_threshhol
         if output:
             print(i, "-", file)
         i += 1
-        tiles = slice_normal_image(os.path.join(path, file), var_upper_threshold=var_upper_threshhold, var_lower_threshold=var_lower_threshhold, mean_threshold=mean_threshold)
+        tiles = slice_normal_image(os.path.join(path, file), var_upper_threshold=var_upper_threshhold, var_lower_threshold=var_lower_threshhold, mean_threshold=mean_threshold, stride=stride)
         for tile in tiles:
             normal_slices.append(tile)
             normal_labels.append("NORMAL")
@@ -398,16 +398,17 @@ def create_slices(path, output=True, var_upper_threshhold=0, var_lower_threshhol
 ## Inputs: path - path to image
 ##         var_threshold - only keep images with a variance BELOW this
 ##         mean_threshold - only keep images with a mean ABOVE this
-def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_threshold=0):
+def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_threshold=0, stride=200):
     # load the image
     img = PIL.Image.open(path)
     
     # convert the image to RGB
     img = PIL.ImageMath.eval('im/256', {'im':img}).convert('L')
     
-    # size the image down by half
+    # size the image down by a random factor for variety and to try to match what we did to the cbis images
+    scale_by = np.random.uniform(low=1.8, high=3.2)
     h, w = img.size
-    new_size = ( h // 2, w // 2)
+    new_size = ( h // scale_by, w // scale_by)
     img.thumbnail(new_size, PIL.Image.ANTIALIAS)
     
     # convert to an array
@@ -421,7 +422,7 @@ def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_
     
     # slice the image into 299x299 tiles
     size = 299
-    tiles = [img[x:x+size,y:y+size] for x in range(0,img.shape[0],size) for y in range(0,img.shape[1],size)]
+    tiles = [img[x:x+size,y:y+size] for x in range(0,img.shape[0],stride) for y in range(0,img.shape[1],stride)]
     usable_tiles = []
     
     # for each tile:
@@ -436,7 +437,7 @@ def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_
                     if np.var(tiles[i]) <= var_upper_threshold:
                         if np.var(tiles[i]) >= var_lower_threshold:
                             # reshape the tile so they will work with the convnet
-                            usable_tiles.append(tiles[i].reshape(299,299,1))
+                            usable_tiles.append(random_flip_image(tiles[i].reshape(299,299,1)))
 
     return usable_tiles
 
@@ -528,4 +529,26 @@ def get_roi_edges(center_col, center_row, img_height, img_width, fuzz_offset_w=0
         start_row = int(img_height - slice_size)
      
     return start_row, end_row, start_col, end_col
+
+
+# In[ ]:
+
+
+
+## randomly rotate an image
+def random_rotate_image(img):
+    rotations = np.random.randint(low=-4, high=3)
+    return np.rot90(img, rotations)
+
+## randomly flip an image left-right, up-down or both and return it
+def random_flip_image(img):
+    fliplr = np.random.binomial(1,0.5)
+    flipud = np.random.binomial(1,0.5)
+    
+    if fliplr:
+        img = np.flip(img, 1)
+    if flipud:
+        img = np.flip(img, 0)
+        
+    return random_rotate_image(img)
 
