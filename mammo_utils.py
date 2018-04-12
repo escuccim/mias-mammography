@@ -414,6 +414,9 @@ def slice_normal_image(path, var_upper_threshold=0, var_lower_threshold=0, mean_
     # convert to an array
     img = np.array(img)
     
+    # remove white pixels
+    img[img == 255] = 0
+    
     # remove 7% from each side of image to eliminate borders
     h, w = img.shape
     hmargin = int(h * 0.07)

@@ -1,0 +1,5 @@
+Training1 - only data augmentation is zooming, test and training data not properly segregated
+Training3 - was a mess, unusable
+Training4 - with data augmentation, including MIAS data
+Training5 - with data augmentation, excluding MIAS data
+Training6 - much more data augmentation done more uniformly
