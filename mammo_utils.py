@@ -555,3 +555,40 @@ def random_flip_image(img):
         
     return random_rotate_image(img)
 
+
+# In[ ]:
+
+
+## cut out tiles from images given the ROI center and size, with padding, random offset and random rotation
+def extract_slice(img, center_col, center_row, roi_size, padding=1.2, context_scale=2, return_slice_size=299):
+    # figure out the size of the tile we will extract
+    tile_size = int(roi_size * context_scale)
+    
+    # if the tile is very small enlarge it so we don't zoom too much and distort the images
+    if tile_size < 300:
+        tile_size = 300
+    
+    # get random offset
+    fuzz_offset_h, fuzz_offset_w = get_fuzzy_offset(int(roi_size * padding), slice_size=tile_size)
+    
+    # define boundaries for the abnormality
+    image_h = img.shape[0]
+    image_w = img.shape[1]
+    start_row, end_row, start_col, end_col = get_roi_edges(center_col, center_row, image_h, image_w, fuzz_offset_w, fuzz_offset_h, 1, slice_size=tile_size)
+    
+    # slice the ROI out of the image
+    img_slice = img[start_row:end_row, start_col:end_col]
+
+    # cut the slice down to proper size
+    try:
+        img_slice = imresize(img_slice, (return_slice_size,return_slice_size))
+    except:
+        print("Error resizing tile")
+        return np.array([1,1])
+    
+    # if everything is usable return it, otherwise return an unusable slice
+    if img_slice.shape == (return_slice_size,return_slice_size):
+        return random_flip_image(img_slice.reshape(return_slice_size,return_slice_size,1))
+    else:
+        return np.array([1,1])
+
