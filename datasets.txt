@@ -3,3 +3,5 @@ Training3 - was a mess, unusable
 Training4 - with data augmentation, including MIAS data
 Training5 - with data augmentation, excluding MIAS data
 Training6 - much more data augmentation done more uniformly
+Training7 - same as 6 but with labels one-hot encoded instead of sparse
+Training8 - same as 5, but with more data augmentation, eliminated the tiling of ROIs

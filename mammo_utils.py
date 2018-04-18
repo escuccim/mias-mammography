@@ -487,22 +487,6 @@ def progress(count, total, status=''):
 # In[ ]:
 
 
-## randomly flip an image left-right, up-down or both and return it
-def random_flip_image(img):
-    fliplr = np.random.binomial(1,0.5)
-    flipud = np.random.binomial(1,0.5)
-    
-    if fliplr:
-        img = np.flip(img, 1)
-    if flipud:
-        img = np.flip(img, 0)
-        
-    return img
-
-
-# In[ ]:
-
-
 def get_roi_edges(center_col, center_row, img_height, img_width, fuzz_offset_w=0, fuzz_offset_h=0, scale_factor=1, slice_size=299):
     # slice margin
     slice_margin = slice_size // 2
@@ -537,10 +521,9 @@ def get_roi_edges(center_col, center_row, img_height, img_width, fuzz_offset_w=0
 # In[ ]:
 
 
-
 ## randomly rotate an image
 def random_rotate_image(img):
-    rotations = np.random.randint(low=-4, high=3)
+    rotations = np.random.randint(low=-3, high=3)
     return np.rot90(img, rotations)
 
 ## randomly flip an image left-right, up-down or both and return it
