@@ -10,6 +10,7 @@ import os
 from PIL import Image, ImageMath
 from scipy.misc import imresize
 import shutil
+import matplotlib.pyplot as plt
 import PIL
 import sys
 
@@ -543,7 +544,7 @@ def random_flip_image(img):
 
 
 ## cut out tiles from images given the ROI center and size, with padding, random offset and random rotation
-def extract_slice(img, center_col, center_row, roi_size, padding=1.2, context_scale=2, return_slice_size=299):
+def extract_slice(img, center_col, center_row, roi_size, padding=1.2, context_scale=2, return_slice_size=299, distort=True):
     # figure out the size of the tile we will extract
     tile_size = int(roi_size * context_scale)
     
@@ -571,7 +572,79 @@ def extract_slice(img, center_col, center_row, roi_size, padding=1.2, context_sc
     
     # if everything is usable return it, otherwise return an unusable slice
     if img_slice.shape == (return_slice_size,return_slice_size):
-        return random_flip_image(img_slice.reshape(return_slice_size,return_slice_size,1))
+        if distort:
+            return random_flip_image(img_slice.reshape(return_slice_size,return_slice_size,1))
+        else:
+            return img_slice.reshape(return_slice_size,return_slice_size,1)
     else:
         return np.array([1,1])
+
+
+# In[ ]:
+
+
+## remove extraneous characters from end of file name and return it
+def clean_name(name):
+    patient_id = re.findall("(P_[\d]+)_", name)
+    if len(patient_id) > 0:
+        patient_id = patient_id[0]
+    else:
+        print("Name error")
+        return name
+
+    image_side = re.findall("_(LEFT|RIGHT)_", name)
+
+    if len(image_side) > 0:
+        image_side = image_side[0]
+    else:
+        print("Side error")
+        return name
+
+    image_type = re.findall("(CC|MLO)", name)
+    if len(image_type) > 0:
+        image_type = image_type[0]
+    else:
+        return name
+    
+    return patient_id + "_" + image_side + "_" + image_type
+
+
+# In[ ]:
+
+
+def plot_metrics(train_acc_values, valid_acc_values, train_cost_values, valid_cost_values, train_recall_values, valid_recall_values, train_lr_values, model_name):
+    # initialize the plots
+    f, ax = plt.subplots(1, 4, figsize=(24, 5))
+
+    ax[0].plot(valid_acc_values, color="red", label="Validation")
+    ax[0].plot(train_acc_values, color="blue", label="Training")
+    ax[0].axhline(y=0.83, color="salmon", label="Baseline Accuracy")
+    ax[0].set_title('Validation accuracy: {:.4f} (mean last 4)'.format(np.mean(valid_acc_values[-4:])))
+    ax[0].set_xlabel('Epoch')
+    ax[0].set_ylabel('Accuracy')
+    ax[0].set_ylim([0.5,1.0])
+    ax[0].legend()
+
+    ax[1].plot(valid_cost_values, color="red", label="Validation")
+    ax[1].plot(train_cost_values, color="blue", label="Training")
+    ax[1].set_title('Validation x-entropy: {:.3f} (mean last 4)'.format(np.mean(valid_cost_values[-4:])))
+    ax[1].set_xlabel('Epoch')
+    ax[1].set_ylabel('Cross Entropy')
+    ax[1].set_ylim([0,2.0])
+    ax[1].legend()
+
+    ax[2].plot(train_recall_values, color="red", label="Validation")
+    ax[2].plot(valid_recall_values, color="blue", label="Training")
+    ax[2].set_title('Validation Recall: {:.3f} (mean last 4)'.format(np.mean(valid_recall_values[-4:])))
+    ax[2].set_xlabel('Epoch')
+    ax[2].set_ylabel('Recall')
+    ax[2].legend()
+
+    ax[3].plot(train_lr_values)
+    ax[3].set_title("Learning rate: {:.6f}".format(np.mean(train_lr_values[-1:])))
+    ax[3].set_xlabel("Epoch")
+    ax[3].set_ylabel("Learning Rate")
+
+    f.suptitle("Results for " + model_name + " Binary (Dataset 9)")
+    plt.show()
 

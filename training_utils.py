@@ -3,6 +3,7 @@ import os
 import wget
 import zipfile
 from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
 import tensorflow as tf
 
 ## open zip files
@@ -80,8 +81,8 @@ def read_and_decode_single_example(filenames, label_type='label_normal', normali
         features={
             'label': tf.FixedLenFeature([], tf.int64),
             'label_normal': tf.FixedLenFeature([], tf.int64),
-            'label_mass': tf.FixedLenFeature([], tf.int64),
-            'label_benign': tf.FixedLenFeature([], tf.int64),
+            # 'label_mass': tf.FixedLenFeature([], tf.int64),
+            # 'label_benign': tf.FixedLenFeature([], tf.int64),
             'image': tf.FixedLenFeature([], tf.string)
         })
 
@@ -92,8 +93,8 @@ def read_and_decode_single_example(filenames, label_type='label_normal', normali
     # reshape and scale the image
     image = tf.reshape(image, [299, 299, 1])
 
-    if normalize:
-        image = tf.image.per_image_standardization(image)
+    # if normalize:
+    #     image = tf.image.per_image_standardization(image)
 
     # random flipping of image
     if distort:
@@ -117,7 +118,12 @@ def load_validation_data(data="validation", how="normal", which=5, percentage=1)
         elif which == 6:
             X_cv = np.load(os.path.join("data", "cv6_data.npy"))
             labels = np.load(os.path.join("data", "cv6_labels.npy"))
-
+        elif which == 8:
+            X_cv = np.load(os.path.join("data", "cv8_data.npy"))
+            labels = np.load(os.path.join("data", "cv8_labels.npy"))
+        elif which == 9:
+            X_cv = np.load(os.path.join("data", "cv9_data.npy"))
+            labels = np.load(os.path.join("data", "cv9_labels.npy"))
     elif data == "test":
         if which == 4:
             X_cv = np.load(os.path.join("data", "test4_data.npy"))
@@ -128,10 +134,20 @@ def load_validation_data(data="validation", how="normal", which=5, percentage=1)
         elif which == 6:
             X_cv = np.load(os.path.join("data", "test6_data.npy"))
             labels = np.load(os.path.join("data", "test6_labels.npy"))
+        elif which == 8:
+            X_cv = np.load(os.path.join("data", "test8_data.npy"))
+            labels = np.load(os.path.join("data", "test8_labels.npy"))
+        elif which == 9:
+            X_cv = np.load(os.path.join("data", "test9_data.npy"))
+            labels = np.load(os.path.join("data", "test9_labels.npy"))
 
     elif data == "mias":
-        X_cv = np.load(os.path.join("data", "mias_test_images.npy"))
-        labels = np.load(os.path.join("data", "mias_test_labels_enc.npy"))
+        if which == 9:
+            X_cv = np.load(os.path.join("data", "all_mias_slices9.npy"))
+            labels = np.load(os.path.join("data", "all_mias_labels9.npy"))
+        else:
+            X_cv = np.load(os.path.join("data", "mias_test_images.npy"))
+            labels = np.load(os.path.join("data", "mias_test_labels_enc.npy"))
 
     # encode the labels appropriately
     if how == "label":
@@ -153,60 +169,108 @@ def load_validation_data(data="validation", how="normal", which=5, percentage=1)
         y_cv[labels == 4] = 2
 
     # shuffle the data
-    X_cv, _, y_cv, _ = train_test_split(X_cv, y_cv, test_size=1 - percentage)
+    X_cv, y_cv = shuffle(X_cv, y_cv)
 
     return X_cv, y_cv
 
 ## Download the data if it doesn't already exist, many datasets have been created, which one to download can be specified using
 ## the what argument
 def download_data(what=4):
-    if what == 4:
+    if what == 8:
         # download and unzip tfrecords training data
-        if not os.path.exists(os.path.join("data", "training4_0.tfrecords")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training4_0.zip',
-                              'training4_0.zip')
+        if not os.path.exists(os.path.join("data", "training8_0.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training8_0.zip',
+                              'training8_0.zip')
 
-        if not os.path.exists(os.path.join("data", "training4_1.tfrecords")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training4_1.zip',
-                              'training4_1.zip')
+        if not os.path.exists(os.path.join("data", "training8_1.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training8_1.zip',
+                              'training8_1.zip')
 
-        if not os.path.exists(os.path.join("data", "training4_2.tfrecords")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training4_2.zip',
-                              'training4_2.zip')
+        if not os.path.exists(os.path.join("data", "training8_2.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training8_2.zip',
+                              'training8_2.zip')
 
-        if not os.path.exists(os.path.join("data", "training4_3.tfrecords")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training4_3.zip',
-                              'training4_3.zip')
+        if not os.path.exists(os.path.join("data", "training8_3.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training8_3.zip',
+                              'training8_3.zip')
 
-        if not os.path.exists(os.path.join("data", "training4_4.tfrecords")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training4_4.zip',
-                              'training4_4.zip')
+        if not os.path.exists(os.path.join("data", "training8_4.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training8_4.zip',
+                              'training8_4.zip')
 
         # download and unzip test data
-        if not os.path.exists(os.path.join("data", "test4_data.npy")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test4_data.zip',
-                              'test4_data.zip')
+        if not os.path.exists(os.path.join("data", "test8_data.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test8_data.zip',
+                              'test8_data.zip')
 
-        if not os.path.exists(os.path.join("data", "test4_filenames.npy")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test4_filenames.npy',
-                              'test4_filenames.npy')
+        if not os.path.exists(os.path.join("data", "test8_filenames.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test8_filenames.npy',
+                              'test8_filenames.npy')
 
         # download test labels
-        if not os.path.exists(os.path.join("data", "test4_labels.npy")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test4_labels.npy',
-                              'test4_labels.npy')
+        if not os.path.exists(os.path.join("data", "test8_labels.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test8_labels.npy',
+                              'test8_labels.npy')
 
         # download and unzip validation data
-        if not os.path.exists(os.path.join("data", "cv4_data.npy")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv4_data.zip', 'cv4_data.zip')
+        if not os.path.exists(os.path.join("data", "cv8_data.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv8_data.zip', 'cv8_data.zip')
 
         # download validation labels
-        if not os.path.exists(os.path.join("data", "cv4_labels.npy")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv4_labels.npy','cv4_labels.npy')
+        if not os.path.exists(os.path.join("data", "cv8_labels.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv8_labels.npy','cv8_labels.npy')
 
-        if not os.path.exists(os.path.join("data", "cv4_filenames.npy")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv4_filenames.npy',
-                              'cv4_filenames.npy')
+        if not os.path.exists(os.path.join("data", "cv8_filenames.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv8_filenames.npy',
+                              'cv8_filenames.npy')
+
+    if what == 9:
+        # download and unzip tfrecords training data
+        if not os.path.exists(os.path.join("data", "training9_0.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training9_0.zip',
+                              'training9_0.zip')
+
+        if not os.path.exists(os.path.join("data", "training9_1.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training9_1.zip',
+                              'training9_1.zip')
+
+        if not os.path.exists(os.path.join("data", "training9_2.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training9_2.zip',
+                              'training9_2.zip')
+
+        if not os.path.exists(os.path.join("data", "training9_3.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training9_3.zip',
+                              'training9_3.zip')
+
+        if not os.path.exists(os.path.join("data", "training9_4.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training9_4.zip',
+                              'training9_4.zip')
+
+        # download and unzip test data
+        if not os.path.exists(os.path.join("data", "test9_data.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test9_data.zip',
+                              'test9_data.zip')
+
+        if not os.path.exists(os.path.join("data", "test9_filenames.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test9_filenames.npy',
+                              'test9_filenames.npy')
+
+        # download test labels
+        if not os.path.exists(os.path.join("data", "test9_labels.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test9_labels.npy',
+                              'test9_labels.npy')
+
+        # download and unzip validation data
+        if not os.path.exists(os.path.join("data", "cv9_data.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv9_data.zip', 'cv9_data.zip')
+
+        # download validation labels
+        if not os.path.exists(os.path.join("data", "cv9_labels.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv9_labels.npy','cv9_labels.npy')
+
+        if not os.path.exists(os.path.join("data", "cv9_filenames.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv9_filenames.npy',
+                              'cv9_filenames.npy')
 
     elif what == 1:
         # download main training tfrecords files
@@ -234,6 +298,15 @@ def download_data(what=4):
         if not os.path.exists(os.path.join("data", "mias_test_labels_enc.npy")):
             _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/all_mias_labels.npy',
                               'mias_test_labels_enc.npy')
+
+        # download MIAS test data
+        if not os.path.exists(os.path.join("data", "all_mias_slices9.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/all_mias_slices9.npy',
+                              'all_mias_slices9.npy')
+
+        if not os.path.exists(os.path.join("data", "all_mias_labels9.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/all_mias_labels9.npy',
+                              'all_mias_labels9.npy')
 
     elif what == 5:
         # download and unzip tfrecords training data
@@ -368,6 +441,26 @@ def get_training_data(what=5):
         train_files = [train_path_10, train_path_11, train_path_12, train_path_13, train_path_14]
         total_records = 62764
 
+    elif what == 8:
+        train_path_10 = os.path.join("data", "training8_0.tfrecords")
+        train_path_11 = os.path.join("data", "training8_1.tfrecords")
+        train_path_12 = os.path.join("data", "training8_2.tfrecords")
+        train_path_13 = os.path.join("data", "training8_3.tfrecords")
+        train_path_14 = os.path.join("data", "training8_4.tfrecords")
+
+        train_files = [train_path_10, train_path_11, train_path_12, train_path_13, train_path_14]
+        total_records = 40559
+
+    elif what == 9:
+        train_path_10 = os.path.join("data", "training9_0.tfrecords")
+        train_path_11 = os.path.join("data", "training9_1.tfrecords")
+        train_path_12 = os.path.join("data", "training9_2.tfrecords")
+        train_path_13 = os.path.join("data", "training9_3.tfrecords")
+        train_path_14 = os.path.join("data", "training9_4.tfrecords")
+
+        train_files = [train_path_10, train_path_11, train_path_12, train_path_13, train_path_14]
+        total_records = 43739
+
     else:
         train_path_0 = os.path.join("data", "training_0.tfrecords")
         train_path_1 = os.path.join("data", "training_1.tfrecords")
@@ -383,7 +476,7 @@ def evaluate_model():
     pass
 
 ## functions to help build the graph
-def _conv2d_batch_norm(input, filters, kernel_size=(3,3), stride=(1,1), training = tf.placeholder(dtype=tf.bool, name="is_training"), epsilon=1e-8, padding="SAME", seed=None, lambd=0.0, name=None):
+def _conv2d_batch_norm(input, filters, kernel_size=(3,3), stride=(1,1), training = tf.placeholder(dtype=tf.bool, name="is_training"), epsilon=1e-8, padding="SAME", seed=None, lambd=0.0, name=None, activation="relu"):
     with tf.name_scope('layer_'+name) as scope:
         conv = tf.layers.conv2d(
             input,
@@ -413,13 +506,14 @@ def _conv2d_batch_norm(input, filters, kernel_size=(3,3), stride=(1,1), training
             name='bn_'+name
         )
 
-        # apply relu
-        conv = tf.nn.relu(conv, name='relu_'+name)
+        if activation == "relu":
+            # apply relu
+            conv = tf.nn.relu(conv, name='relu_'+name)
 
     return conv
 
 def _dense_batch_norm(input, units,  training = tf.placeholder(dtype=tf.bool, name="is_training"), epsilon=1e-8, seed=None, dropout_rate=0.5, lambd=0.0, name=None):
-    with tf.name_scope('layer_' + name) as scope:
+    with tf.name_scope('fc_' + name) as scope:
         fc = tf.layers.dense(
             input,  # input
             units,  # 1024 hidden units

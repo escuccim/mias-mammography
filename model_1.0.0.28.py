@@ -4,37 +4,26 @@ import wget
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from training_utils import download_file, get_batches, read_and_decode_single_example, load_validation_data, \
-    download_data, evaluate_model, get_training_data, load_weights
+    download_data, evaluate_model, get_training_data, load_weights, flatten
 import argparse
 from tensorboard import summary as summary_lib
 
 # If number of epochs has been passed in use that, otherwise default to 50
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--epochs", help="number of epochs to train", type=int)
-parser.add_argument("-d", "--data", help="which dataset to use", type=int)
-parser.add_argument("-m", "--model", help="model to initialize with")
-parser.add_argument("-l", "--label", help="how to classify data")
+parser.add_argument("-e", "--epochs", help="number of epochs to train", default=50, type=int)
+parser.add_argument("-d", "--data", help="which dataset to use", default=5, type=int)
+parser.add_argument("-m", "--model", help="model to initialize with", default=None)
+parser.add_argument("-l", "--label", help="how to classify data", default="normal")
+parser.add_argument("-a", "--action", help="action to perform", default="train")
+parser.add_argument("-t", "--threshold", help="decision threshold", default=0.5, type=int)
 args = parser.parse_args()
 
-if args.epochs:
-    epochs = args.epochs
-else:
-    epochs = 50
-
-if args.data:
-    dataset = args.data
-else:
-    dataset = 6
-
-if args.model:
-    init_model = args.model
-else:
-    init_model = None
-
-if args.label:
-    how = args.label
-else:
-    how = "label"
+epochs = args.epochs
+dataset = args.data
+init_model = args.model
+how = args.label
+action = args.action
+threshold = args.threshold
 
 # download the data
 download_data(what=dataset)
@@ -77,12 +66,14 @@ elif how == "mass":
 elif how == "benign":
     num_classes = 3
 
+print("Number of classes:", num_classes)
+
 ## Build the graph
 graph = tf.Graph()
 
 # whether to retrain model from scratch or use saved model
 init = True
-model_name = "model_s1.0.0.29f"
+model_name = "model_s1.0.0.28n"
 # 0.0.0.4 - increase pool3 to 3x3 with stride 3
 # 0.0.0.6 - reduce pool 3 stride back to 2
 # 0.0.0.7 - reduce lambda for l2 reg
@@ -626,17 +617,6 @@ with graph.as_default():
         precision, prec_op = tf.metrics.precision(labels=collapsed_labels, predictions=collapsed_predictions, updates_collections=tf.GraphKeys.UPDATE_OPS, name="precision")
         f1_score = 2 * ((precision * recall) / (precision + recall))
 
-        tf.summary.scalar('recall_1', recall, collections=["summaries"])
-        tf.summary.scalar('precision_1', precision, collections=["summaries"])
-        tf.summary.scalar('f1_score', f1_score, collections=["summaries"])
-
-        # additional metrics
-        true_pos, _ = tf.metrics.true_positives(labels=collapsed_labels, predictions=collapsed_predictions, updates_collections=tf.GraphKeys.UPDATE_OPS, name="true_positives")
-        false_pos, _ = tf.metrics.false_positives(labels=collapsed_labels, predictions=collapsed_predictions, updates_collections=tf.GraphKeys.UPDATE_OPS, name="false_positives")
-        true_neg, _ = tf.metrics.true_negatives(labels=collapsed_labels, predictions=collapsed_predictions,
-                                                updates_collections=tf.GraphKeys.UPDATE_OPS, name="true_negatives")
-        false_neg, _ = tf.metrics.false_negatives(labels=collapsed_labels, predictions=collapsed_predictions,
-                                                  updates_collections=tf.GraphKeys.UPDATE_OPS, name="false_negatives")
 
         _, update_op = summary_lib.pr_curve_streaming_op(name='pr_curve',
                                                         predictions=(1 - probabilities[:, 0]),
@@ -654,25 +634,14 @@ with graph.as_default():
                                                          updates_collections=tf.GraphKeys.UPDATE_OPS,
                                                          num_thresholds=20)
 
-        # additional metrics
-        true_pos, _ = tf.metrics.true_positives(labels=y, predictions=predictions, updates_collections=tf.GraphKeys.UPDATE_OPS, name="true_positives")
-        false_pos, _ = tf.metrics.false_positives(labels=y, predictions=predictions, updates_collections=tf.GraphKeys.UPDATE_OPS, name="false_positives")
-        true_neg, _ = tf.metrics.true_negatives(labels=y, predictions=predictions, updates_collections=tf.GraphKeys.UPDATE_OPS, name="true_negatives")
-        false_neg, _ = tf.metrics.false_negatives(labels=y, predictions=predictions, updates_collections=tf.GraphKeys.UPDATE_OPS, name="false_negatives")
-
-        tf.summary.scalar('recall_1', recall, collections=["summaries"])
-        tf.summary.scalar('precision_1', precision, collections=["summaries"])
-        tf.summary.scalar('f1_score', f1_score, collections=["summaries"])
+    tf.summary.scalar('recall_1', recall, collections=["summaries"])
+    tf.summary.scalar('precision_1', precision, collections=["summaries"])
+    tf.summary.scalar('f1_score', f1_score, collections=["summaries"])
 
     # Create summary hooks
     tf.summary.scalar('accuracy', accuracy, collections=["summaries"])
     tf.summary.scalar('cross_entropy', mean_ce, collections=["summaries"])
     tf.summary.scalar('learning_rate', learning_rate, collections=["summaries"])
-
-    tf.summary.scalar('true_posit', true_pos, collections=["per_epoch"])
-    tf.summary.scalar('true_negat', true_neg, collections=["per_epoch"])
-    tf.summary.scalar('false_posit', false_pos, collections=["per_epoch"])
-    tf.summary.scalar('false_negat', false_neg, collections=["per_epoch"])
 
     # add this so that the batch norm gets run
     extra_update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -680,7 +649,7 @@ with graph.as_default():
     # Merge all the summaries
     merged = tf.summary.merge_all("summaries")
     kernel_summaries = tf.summary.merge_all("kernels")
-    per_epoch_summaries = tf.summary.merge_all("per_epoch")
+    per_epoch_summaries = [[]]
 
     print("Graph created...")
 
@@ -703,9 +672,41 @@ checkpoint_every = 1  # how often to save model in epochs
 use_gpu = False  # whether or not to use the GPU
 print_metrics = True  # whether to print or plot metrics, if False a plot will be created and updated every epoch
 
-# Placeholders for metrics
-valid_acc_values = []
-train_acc_values = []
+# Initialize metrics or load them from disk if they exist
+if os.path.exists(os.path.join("data", model_name + "train_acc.npy")):
+    train_acc_values = np.load(os.path.join("data", model_name + "train_acc.npy")).tolist()
+else:
+    train_acc_values = []
+
+if os.path.exists(os.path.join("data", model_name + "train_loss.npy")):
+    train_cost_values = np.load(os.path.join("data", model_name + "train_loss.npy")).tolist()
+else:
+    train_cost_values = []
+
+if os.path.exists(os.path.join("data", model_name + "train_lr.npy")):
+    train_lr_values = np.load(os.path.join("data", model_name + "train_lr.npy")).tolist()
+else:
+    train_lr_values = []
+
+if os.path.exists(os.path.join("data", model_name + "train_recall.npy")):
+    train_recall_values = np.load(os.path.join("data", model_name + "train_recall.npy")).tolist()
+else:
+    train_recall_values = []
+
+if os.path.exists(os.path.join("data", model_name + "cv_acc.npy")):
+    valid_acc_values = np.load(os.path.join("data", model_name + "cv_acc.npy")).tolist()
+else:
+    valid_acc_values = []
+
+if os.path.exists(os.path.join("data", model_name + "cv_loss.npy")):
+    valid_cost_values = np.load(os.path.join("data", model_name + "cv_loss.npy")).tolist()
+else:
+    valid_cost_values = []
+
+if os.path.exists(os.path.join("data", model_name + "cv_recall.npy")):
+    valid_recall_values = np.load(os.path.join("data", model_name + "cv_recall.npy")).tolist()
+else:
+    valid_recall_values = []
 
 config = tf.ConfigProto()
 
@@ -751,143 +752,176 @@ with tf.Session(graph=graph, config=config) as sess:
             saver.restore(sess, './model/' + model_name + '.ckpt')
             print("Restoring model", model_name)
 
-    coord = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(coord=coord)
-    print("Training model", model_name,"...")
-    
-    for epoch in range(epochs):
-        sess.run(tf.local_variables_initializer())
+    # if we are training the model
+    if action == "train":
 
-        # Accuracy values (train) after each batch
-        batch_acc = []
-        batch_cost = []
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(coord=coord)
 
-        for i in range(steps_per_epoch):
-            # create the metadata
-            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-            run_metadata = tf.RunMetadata()
+        print("Training model", model_name, "...")
 
-            # Run training op and update ops
-            if (i % 50 != 0) or (i == 0):
-                # log the kernel images once per epoch
-                if (i == (steps_per_epoch - 1)) and log_to_tensorboard:
-                    _, _, _, image_summary, step = sess.run(
-                        [train_op, extra_update_ops, update_op, kernel_summaries, global_step],
-                        feed_dict={
-                            training: True,
-                        },
-                        options=run_options,
-                        run_metadata=run_metadata)
+        for epoch in range(epochs):
+            sess.run(tf.local_variables_initializer())
 
-                    # write the summary
-                    train_writer.add_summary(image_summary, step)
-                else:
-                    _, _, _, step = sess.run(
-                        [train_op, extra_update_ops, update_op, global_step],
+            # Accuracy values (train) after each batch
+            batch_acc = []
+            batch_cost = []
+            batch_recall = []
+
+            for i in range(steps_per_epoch):
+                # create the metadata
+                run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                run_metadata = tf.RunMetadata()
+
+                # Run training op and update ops
+                if (i % 50 != 0) or (i == 0):
+                    # log the kernel images once per epoch
+                    if (i == (steps_per_epoch - 1)) and log_to_tensorboard:
+                        _, _, _, image_summary, step = sess.run(
+                            [train_op, extra_update_ops, update_op, kernel_summaries, global_step],
                             feed_dict={
                                 training: True,
                             },
                             options=run_options,
                             run_metadata=run_metadata)
 
-            # every 50th step get the metrics
-            else:
-                _, _, _, precision_value, summary, acc_value, cost_value, recall_value, step = sess.run(
-                    [train_op, extra_update_ops, update_op, prec_op, merged, accuracy, mean_ce, rec_op, global_step],
+                        # write the summary
+                        train_writer.add_summary(image_summary, step)
+                    else:
+                        _, _, _, step = sess.run(
+                            [train_op, extra_update_ops, update_op, global_step],
+                                feed_dict={
+                                    training: True,
+                                },
+                                options=run_options,
+                                run_metadata=run_metadata)
+
+                # every 50th step get the metrics
+                else:
+                    _, _, _, precision_value, summary, acc_value, cost_value, recall_value, step, lr = sess.run(
+                        [train_op, extra_update_ops, update_op, prec_op, merged, accuracy, mean_ce, rec_op, global_step, learning_rate],
+                        feed_dict={
+                            training: True,
+                        },
+                        options=run_options,
+                        run_metadata=run_metadata)
+
+                    # Save accuracy (current batch)
+                    batch_acc.append(acc_value)
+                    batch_cost.append(cost_value)
+                    batch_recall.append(recall_value)
+
+                    # log the summaries to tensorboard every 50 steps
+                    if log_to_tensorboard:
+                        # write the summary
+                        train_writer.add_summary(summary, step)
+
+                # only log the meta data once per epoch
+                if i == 1:
+                    train_writer.add_run_metadata(run_metadata, 'step %d' % step)
+
+            # save checkpoint every nth epoch
+            if (epoch % checkpoint_every == 0):
+                print("Saving checkpoint")
+                save_path = saver.save(sess, './model/' + model_name + '.ckpt')
+
+                # Now that model is saved set init to false so we reload it next time
+                init = False
+
+            # init batch arrays
+            batch_cv_acc = []
+            batch_cv_loss = []
+            batch_cv_recall = []
+
+            # initialize the local variables so we have metrics only on the evaluation
+            sess.run(tf.local_variables_initializer())
+
+            print("Evaluating model...")
+            # load the test data
+            X_cv, y_cv = load_validation_data(percentage=1, how=how, which=dataset)
+
+            # evaluate the test data
+            for X_batch, y_batch in get_batches(X_cv, y_cv, batch_size, distort=False):
+                _, _, valid_acc, valid_recall, valid_precision, valid_fscore, valid_cost = sess.run(
+                    [update_op, extra_update_ops, accuracy, rec_op, prec_op, f1_score, mean_ce],
                     feed_dict={
-                        training: True,
-                    },
-                    options=run_options,
-                    run_metadata=run_metadata)
+                        X: X_batch,
+                        y: y_batch,
+                        training: False
+                    })
 
-                # Save accuracy (current batch)
-                batch_acc.append(acc_value)
-                batch_cost.append(cost_value)
+                batch_cv_acc.append(valid_acc)
+                batch_cv_loss.append(valid_cost)
+                batch_cv_recall.append(valid_recall)
 
-                # log the summaries to tensorboard every 50 steps
-                if log_to_tensorboard:
-                    # write the summary
-                    train_writer.add_summary(summary, step)
-
-            # only log the meta data once per epoch
-            if i == 1:
-                train_writer.add_run_metadata(run_metadata, 'step %d' % step)
-                
-        # save checkpoint every nth epoch
-        if(epoch % checkpoint_every == 0):
-            print("Saving checkpoint")
-            save_path = saver.save(sess, './model/'+model_name+'.ckpt')
-    
-            # Now that model is saved set init to false so we reload it next time
-            init = False
-        
-        # init batch arrays
-        batch_cv_acc = []
-
-        # initialize the local variables so we have metrics only on the evaluation
-        sess.run(tf.local_variables_initializer())
-
-        print("Evaluating model...")
-        # load the test data
-        X_cv, y_cv = load_validation_data(percentage=1, how=how, which=dataset)
-
-        # evaluate the test data
-        for X_batch, y_batch in get_batches(X_cv, y_cv, batch_size, distort=False):
-            _, _, valid_acc, valid_recall, valid_precision, valid_fscore, valid_cost = sess.run(
-                [update_op, extra_update_ops, accuracy, rec_op, prec_op, f1_score, mean_ce],
-                feed_dict={
-                    X: X_batch,
-                    y: y_batch,
-                    training: False
-                })
-
-            batch_cv_acc.append(valid_acc)
-
-        # Write average of validation data to summary logs
-        if log_to_tensorboard:
-            # evaluate once more to get the summary, which will then be written to tensorboard
-            summary, other_summaries, cv_accuracy = sess.run(
-                [merged, per_epoch_summaries, accuracy],
-                feed_dict={
-                    X: X_cv[0:2],
-                    y: y_cv[0:2],
-                    training: False
-                })
+            # Write average of validation data to summary logs
+            if log_to_tensorboard:
+                # evaluate once more to get the summary, which will then be written to tensorboard
+                summary, cv_accuracy = sess.run(
+                    [merged, accuracy],
+                    feed_dict={
+                        X: X_cv[0:2],
+                        y: y_cv[0:2],
+                        training: False
+                    })
 
             test_writer.add_summary(summary, step)
-            test_writer.add_summary(other_summaries, step)
-        step += 1
+            # test_writer.add_summary(other_summaries, step)
+            step += 1
 
-        # delete the test data to save memory
-        del (X_cv)
-        del (y_cv)
+            # delete the test data to save memory
+            del (X_cv)
+            del (y_cv)
 
-        print("Done evaluating...")
+            print("Done evaluating...")
 
-        # take the mean of the values to add to the metrics
-        valid_acc_values.append(np.mean(batch_cv_acc))
-        train_acc_values.append(np.mean(batch_acc))
+            # take the mean of the values to add to the metrics
+            valid_acc_values.append(np.mean(batch_cv_acc))
+            train_acc_values.append(np.mean(batch_acc))
 
-        # Print progress every nth epoch to keep output to reasonable amount
-        if (epoch % print_every == 0):
-            print(
-            'Epoch {:02d} - step {} - cv acc: {:.3f} - train acc: {:.3f} (mean)'.format(
-                epoch, step, np.mean(batch_cv_acc), np.mean(batch_acc)
-            ))
+            valid_cost_values.append(np.mean(batch_cv_loss))
+            train_cost_values.append(np.mean(batch_cost))
 
-        # Print data every 50th epoch so I can write it down to compare models
-        if (not print_metrics) and (epoch % 50 == 0) and (epoch > 1):
+            valid_recall_values.append(np.mean(batch_cv_recall))
+            train_recall_values.append(np.mean(batch_recall))
+
+            train_lr_values.append(lr)
+
+            # save the metrics
+            np.save(os.path.join("data", model_name + "train_acc.npy"), train_acc_values)
+            np.save(os.path.join("data", model_name + "cv_acc.npy"), valid_acc_values)
+
+            np.save(os.path.join("data", model_name + "train_loss.npy"), train_cost_values)
+            np.save(os.path.join("data", model_name + "cv_loss.npy"), valid_cost_values)
+
+            np.save(os.path.join("data", model_name + "train_recall.npy"), train_recall_values)
+            np.save(os.path.join("data", model_name + "cv_recall.npy"), valid_recall_values)
+
+            np.save(os.path.join("data", model_name + "train_lr.npy"), train_lr_values)
+
+            # Print progress every nth epoch to keep output to reasonable amount
             if (epoch % print_every == 0):
                 print(
                 'Epoch {:02d} - step {} - cv acc: {:.4f} - train acc: {:.3f} (mean)'.format(
                     epoch, step, np.mean(batch_cv_acc), np.mean(batch_acc)
                 ))
 
-    # stop the coordinator
-    coord.request_stop()
+            # Print data every 50th epoch so I can write it down to compare models
+            if (not print_metrics) and (epoch % 50 == 0) and (epoch > 1):
+                if (epoch % print_every == 0):
+                    print(
+                    'Epoch {:02d} - step {} - cv acc: {:.4f} - train acc: {:.3f} (mean)'.format(
+                        epoch, step, np.mean(batch_cv_acc), np.mean(batch_acc)
+                    ))
 
-    # Wait for threads to stop
-    coord.join(threads)
+        # stop the coordinator
+        coord.request_stop()
+
+        # Wait for threads to stop
+        coord.join(threads)
+
+    sess.run(tf.local_variables_initializer())
+    print("Evaluating on test data")
 
     # evaluate the test data
     X_te, y_te = load_validation_data(how=how, data="test", which=dataset)
@@ -897,7 +931,7 @@ with tf.Session(graph=graph, config=config) as sess:
     test_predictions = []
     ground_truth = []
     for X_batch, y_batch in get_batches(X_te, y_te, batch_size, distort=False):
-        yhat, test_acc_value, test_recall_value = sess.run([predictions, accuracy, rec_op], feed_dict=
+        _, yhat, test_acc_value, test_recall_value = sess.run([extra_update_ops, predictions, accuracy, rec_op], feed_dict=
         {
             X: X_batch,
             y: y_batch,
@@ -909,10 +943,52 @@ with tf.Session(graph=graph, config=config) as sess:
         test_predictions.append(yhat)
         ground_truth.append(y_batch)
 
+    print("Evaluating on test data")
+
     # print the results
     print("Mean Test Accuracy:", np.mean(test_accuracy))
     print("Mean Test Recall:", np.mean(test_recall))
 
+    # unlist the predictions and truth
+    test_predictions = flatten(test_predictions)
+    ground_truth = flatten(ground_truth)
+
     # save the predictions and truth for review
     np.save(os.path.join("data", "predictions_" + model_name + ".npy"), test_predictions)
     np.save(os.path.join("data", "truth_" + model_name + ".npy"), ground_truth)
+
+    sess.run(tf.local_variables_initializer())
+
+    ## evaluate on MIAS  data
+    X_te, y_te = load_validation_data(how=how, data="mias", which=dataset)
+
+    mias_test_accuracy = []
+    mias_test_recall = []
+    mias_test_predictions = []
+    mias_ground_truth = []
+    for X_batch, y_batch in get_batches(X_te, y_te, batch_size, distort=False):
+        _, yhat, test_acc_value, test_recall_value = sess.run([extra_update_ops, predictions, accuracy, rec_op], feed_dict=
+        {
+            X: X_batch,
+            y: y_batch,
+            training: False
+        })
+
+        mias_test_accuracy.append(test_acc_value)
+        mias_test_recall.append(test_recall_value)
+        mias_test_predictions.append(yhat)
+        mias_ground_truth.append(y_batch)
+
+    # print the results
+    print("Mean MIAS Accuracy:", np.mean(mias_test_accuracy))
+    print("Mean MIAS Recall:", np.mean(mias_test_recall))
+
+    # unlist the predictions and truth
+    mias_test_predictions = flatten(mias_test_predictions)
+    mias_ground_truth = flatten(mias_ground_truth)
+
+    # save the predictions and truth for review
+    np.save(os.path.join("data", "mias_predictions_" + model_name + ".npy"), mias_test_predictions)
+    np.save(os.path.join("data", "mias_truth_" + model_name + ".npy"), mias_ground_truth)
+
+
