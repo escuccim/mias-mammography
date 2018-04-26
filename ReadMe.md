@@ -157,6 +157,48 @@ The techniques used in this work could be applied to analysing entire mammograms
 
 Future work would include applying other techniques to this problem, such as YOLO or attention based models; and creating models which will generalize better.
 
+## Supplementary Files
+Two personal GitHub repositories were used for this work:
+
+1. https://github.com/escuccim/mias-mammography - contained the Jupyter notebooks and code run locally.
+2. https://github.com/escuccim/mammography-models - was used to sync code between my laptop and the Google Cloud instances where the models were trained 
+
+If there is something missing from this repository, it may be in located in one of those. Below in a non-exhaustive list of scripts and notebooks which contain relevant code or were used for this work.
+
+### Notebooks
+- MIAS Exploratory Data Analysis.ipynb - exploratory data analysis of the MIAS data
+- Wisconsin (UCI) EDA.ipynb - exploratory data analysis of the UCI data
+- SVM.ipynb, kNN.ipynb, Decision Trees.ipynb, Multilayer neural networks.ipynb - application of standard machine learning techniques to the UCI data
+- UCI Results.ipynb - results of above evaluations
+- crop_cbis_images_x.ipynb - various methods used to extract ROIs from the CBIS-DDSM dataset
+- crop_normal_images_x.ipynb - corresponding code to create images from normal DDSM images
+- crop_mias_images_x.ipynb - corresponding code the create images from the MIAS dataset
+- review_images_x.ipynb - to review the images created in the above scripts and identify any problems
+- write_to_tfrecords_x.ipynb - create tfrecords files from dataset x
+- convnet_1.0.0.29l.ipynb - code used to train model 1.0.0.29 in a notebook, with results and evaluation on test data
+- convnet_training_metrics.ipynb - training and validation metrics for selected training runs
+- ddsm_results.ipynb - accuracy and recall metrics for selected training runs
+
+### Python Scripts
+- mammo_utils.py - functions used in pre-processing data
+- training_utils.py - functions used for creating and training models
+- inception_utils.py - functions used to create and train our Inception clone
+- candidate_x.x.x.x - various candidate models trained
+- vgg_16.x.py - code used to create and train our VGG-lite model
+- inception_v4.x.py - code used to create and train our Inception-lite model
+
+### Markdown Files
+- ReadMe.md - what you are reading right now
+- overview_of_image_processing.md - an overview of the steps taken to create and pre-process the image data
+
+### Other
+- data/results - metrics generated during training saved as .npy files
+- the tfrecords used to train the models are available from download from Amazon S3. The URLs are in training_utils.py.
+- Decompressing-For-LJPEG-image - code used to convert the DDSM images from LJPEG to usable images
+- model_notes.xlsx - notes kept during training of models, only includes results relevant to this overview
+
+
+
 ## References
 [1]	D. Levy, A. Jain, Breast Mass Classification from Mammograms using Deep Convolutional Neural Networks, arXiv:1612.00542v1, 2016
 
