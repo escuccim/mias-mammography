@@ -612,7 +612,18 @@ def clean_name(name):
 # In[ ]:
 
 
-def plot_metrics(train_acc_values, valid_acc_values, train_cost_values, valid_cost_values, train_recall_values, valid_recall_values, train_lr_values, model_name):
+def plot_metrics(model_name, classification, dataset):
+    train_acc_values = np.load(os.path.join("data", "results", model_name, model_name + "train_acc.npy"))
+    valid_acc_values = np.load(os.path.join("data", "results", model_name, model_name + "cv_acc.npy"))
+
+    train_cost_values = np.load(os.path.join("data", "results", model_name, model_name + "train_loss.npy"))
+    valid_cost_values = np.load(os.path.join("data", "results", model_name, model_name + "cv_loss.npy"))
+
+    train_recall_values = np.load(os.path.join("data", "results", model_name, model_name + "train_recall.npy"))
+    valid_recall_values = np.load(os.path.join("data", "results", model_name, model_name + "cv_recall.npy"))
+
+    train_lr_values = np.load(os.path.join("data", "results", model_name, model_name + "train_lr.npy"))
+    
     # initialize the plots
     f, ax = plt.subplots(1, 4, figsize=(24, 5))
 
@@ -622,7 +633,7 @@ def plot_metrics(train_acc_values, valid_acc_values, train_cost_values, valid_co
     ax[0].set_title('Validation accuracy: {:.4f} (mean last 4)'.format(np.mean(valid_acc_values[-4:])))
     ax[0].set_xlabel('Epoch')
     ax[0].set_ylabel('Accuracy')
-    ax[0].set_ylim([0.5,1.0])
+    ax[0].set_ylim([0.4,1.0])
     ax[0].legend()
 
     ax[1].plot(valid_cost_values, color="red", label="Validation")
@@ -645,6 +656,6 @@ def plot_metrics(train_acc_values, valid_acc_values, train_cost_values, valid_co
     ax[3].set_xlabel("Epoch")
     ax[3].set_ylabel("Learning Rate")
 
-    f.suptitle("Results for " + model_name + " Binary (Dataset 9)")
+    f.suptitle("Results for " + model_name + " " + classification + " (Dataset " + str(dataset) + ")")
     plt.show()
 
