@@ -5,6 +5,7 @@ import zipfile
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 import tensorflow as tf
+import math
 
 ## open zip files
 def unzip(file, destination):
@@ -272,23 +273,6 @@ def download_data(what=4):
             _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv9_filenames.npy',
                               'cv9_filenames.npy')
 
-    elif what == 1:
-        # download main training tfrecords files
-        if not os.path.exists(os.path.join("data", "training_0.tfrecords")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_0.tfrecords',
-                              'training_0.tfrecords')
-
-        if not os.path.exists(os.path.join("data", "training_1.tfrecords")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_1.tfrecords',
-                              'training_1.tfrecords')
-
-        if not os.path.exists(os.path.join("data", "training_2.tfrecords")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_2.tfrecords',
-                              'training_2.tfrecords')
-
-        if not os.path.exists(os.path.join("data", "training_3.tfrecords")):
-            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training_3.tfrecords',
-                              'training_3.tfrecords')
     elif what == 0:
         # download MIAS test data
         if not os.path.exists(os.path.join("data", "mias_test_images.npy")):
@@ -563,3 +547,79 @@ def flatten(l):
         else:
             out.append(item)
     return out
+
+def _scale_input_data(X, contrast=None, mu=104.1353, scale=255.0):
+    # if we are adjusting contrast do that
+    if contrast:
+        X_adj = tf.image.adjust_contrast(X, contrast)
+    else:
+        X_adj = X
+
+    # cast to float
+    X_adj = tf.cast(X_adj, dtype=tf.float32)
+
+    # center the pixel data
+    # mu_tf = tf.constant(mu, name="pixel_mean", dtype=tf.float32)
+    X_adj = tf.subtract(X_adj, mu, name="centered_input")
+
+    # scale the data
+    X_adj = tf.divide(X_adj, scale)
+
+    return X_adj
+
+# Function to do the data augmentation on the GPU instead of the CPU, doing it on the CPU significantly slowed down training
+# Taken from https://becominghuman.ai/data-augmentation-on-gpu-in-tensorflow-13d14ecf2b19
+def augment(images, labels,
+            horizontal_flip=False,
+            vertical_flip=False,
+            mixup=0):  # Mixup coeffecient, see https://arxiv.org/abs/1710.09412.pdf
+
+    # My experiments showed that casting on GPU improves training performance
+    if images.dtype != tf.float32:
+        images = tf.image.convert_image_dtype(images, dtype=tf.float32)
+
+    with tf.name_scope('augmentation'):
+        shp = tf.shape(images)
+        batch_size, height, width = shp[0], shp[1], shp[2]
+        width = tf.cast(width, tf.float32)
+        height = tf.cast(height, tf.float32)
+
+        # The list of affine transformations that our image will go under.
+        # Every element is Nx8 tensor, where N is a batch size.
+        transforms = []
+        identity = tf.constant([1, 0, 0, 0, 1, 0, 0, 0], dtype=tf.float32)
+        if horizontal_flip:
+            coin = tf.less(tf.random_uniform([batch_size], 0, 1.0), 0.5)
+            flip_transform = tf.convert_to_tensor(
+                [-1., 0., width, 0., 1., 0., 0., 0.], dtype=tf.float32)
+            transforms.append(
+                tf.where(coin,
+                         tf.tile(tf.expand_dims(flip_transform, 0), [batch_size, 1]),
+                         tf.tile(tf.expand_dims(identity, 0), [batch_size, 1])))
+
+        if vertical_flip:
+            coin = tf.less(tf.random_uniform([batch_size], 0, 1.0), 0.5)
+            flip_transform = tf.convert_to_tensor(
+                [1, 0, 0, 0, -1, height, 0, 0], dtype=tf.float32)
+            transforms.append(
+                tf.where(coin,
+                         tf.tile(tf.expand_dims(flip_transform, 0), [batch_size, 1]),
+                         tf.tile(tf.expand_dims(identity, 0), [batch_size, 1])))
+
+        if transforms:
+            images = tf.contrib.image.transform(
+                images,
+                tf.contrib.image.compose_transforms(*transforms),
+                interpolation='BILINEAR')  # or 'NEAREST'
+
+        def cshift(values):  # Circular shift in batch dimension
+            return tf.concat([values[-1:, ...], values[:-1, ...]], 0)
+
+        if mixup > 0:
+            beta = tf.distributions.Beta(mixup, mixup)
+            lam = beta.sample(batch_size)
+            ll = tf.expand_dims(tf.expand_dims(tf.expand_dims(lam, -1), -1), -1)
+            images = ll * images + (1 - ll) * cshift(images)
+            labels = lam * labels + (1 - lam) * cshift(labels)
+
+    return images, labels

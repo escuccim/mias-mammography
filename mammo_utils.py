@@ -612,17 +612,20 @@ def clean_name(name):
 # In[ ]:
 
 
-def plot_metrics(model_name, classification, dataset):
-    train_acc_values = np.load(os.path.join("data", "results", model_name, model_name + "train_acc.npy"))
-    valid_acc_values = np.load(os.path.join("data", "results", model_name, model_name + "cv_acc.npy"))
+def plot_metrics(model_name, classification, dataset, model_dir=None, vline=None, vlabel=None):
+    if model_dir == None:
+        model_dir = model_name
+        
+    train_acc_values = np.load(os.path.join("data", "results", model_dir, model_name + "train_acc.npy"))
+    valid_acc_values = np.load(os.path.join("data", "results", model_dir, model_name + "cv_acc.npy"))
 
-    train_cost_values = np.load(os.path.join("data", "results", model_name, model_name + "train_loss.npy"))
-    valid_cost_values = np.load(os.path.join("data", "results", model_name, model_name + "cv_loss.npy"))
+    train_cost_values = np.load(os.path.join("data", "results", model_dir, model_name + "train_loss.npy"))
+    valid_cost_values = np.load(os.path.join("data", "results", model_dir, model_name + "cv_loss.npy"))
 
-    train_recall_values = np.load(os.path.join("data", "results", model_name, model_name + "train_recall.npy"))
-    valid_recall_values = np.load(os.path.join("data", "results", model_name, model_name + "cv_recall.npy"))
+    train_recall_values = np.load(os.path.join("data", "results", model_dir, model_name + "train_recall.npy"))
+    valid_recall_values = np.load(os.path.join("data", "results", model_dir, model_name + "cv_recall.npy"))
 
-    train_lr_values = np.load(os.path.join("data", "results", model_name, model_name + "train_lr.npy"))
+    train_lr_values = np.load(os.path.join("data", "results", model_dir, model_name + "train_lr.npy"))
     
     # initialize the plots
     f, ax = plt.subplots(1, 4, figsize=(24, 5))
@@ -633,9 +636,14 @@ def plot_metrics(model_name, classification, dataset):
     ax[0].set_title('Validation accuracy: {:.4f} (mean last 4)'.format(np.mean(valid_acc_values[-4:])))
     ax[0].set_xlabel('Epoch')
     ax[0].set_ylabel('Accuracy')
-    ax[0].set_ylim([0.4,1.0])
-    ax[0].legend()
+    ax[0].set_ylim([0.3,1.0])
 
+    # draw vertical line if one is passed in
+    if vline is not None:
+        ax[0].axvline(x=vline, color="black", label=vlabel)
+        
+    ax[0].legend()
+    
     ax[1].plot(valid_cost_values, color="red", label="Validation")
     ax[1].plot(train_cost_values, color="blue", label="Training")
     ax[1].set_title('Validation x-entropy: {:.3f} (mean last 4)'.format(np.mean(valid_cost_values[-4:])))
