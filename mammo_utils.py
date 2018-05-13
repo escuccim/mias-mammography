@@ -1,9 +1,5 @@
 
 # coding: utf-8
-
-# In[1]:
-
-
 import re
 import numpy as np
 import os
@@ -39,8 +35,6 @@ def read_pgm(filename, byteorder='>'):
     image_id = int(re.findall('([\d]+)\.', filename)[0])
     
     return image
-
-
 # In[2]:
 
 
@@ -666,4 +660,105 @@ def plot_metrics(model_name, classification, dataset, model_dir=None, vline=None
 
     f.suptitle("Results for " + model_name + " " + classification + " (Dataset " + str(dataset) + ")")
     plt.show()
+
+
+# In[ ]:
+
+
+def stats_on_images(array):
+    print("Var:", np.var(array))
+    print("Max:", np.max(array))
+    print("Min:", np.min(array))
+    print("Mean:", np.mean(array)) 
+    
+def scale_data(input_data, new_min=0.0, new_max=255.0):
+    old_max = np.max(input_data)
+    old_min = np.min(input_data)
+    
+    adjustment_factor = (new_max - new_min) / (old_max - old_min)
+    scaled_data = adjustment_factor * (input_data - old_min) + new_min
+    
+    return scaled_data
+
+def per_image_summary(data):
+    maxes = []
+    mins = []
+    means = []
+    sigmas = []
+    
+    for item in data:
+        maxes.append(np.max(item))
+        mins.append(np.min(item))
+        means.append(np.mean(item))
+        sigmas.append(np.std(item))
+        
+    return maxes, mins, means, sigmas
+
+def plot_data_summaries(data):
+    maxes, mins, means, sigmas = per_image_summary(data)
+    
+    f, ax = plt.subplots(1, 4, figsize=(24, 5))
+    
+    ax[0].hist(maxes, bins=np.arange(0,250,25))
+    ax[0].set_title("Max")
+    
+    ax[1].hist(mins, bins=np.arange(0,250,25))
+    ax[1].set_title("Min")
+    
+    ax[2].hist(means, bins=np.arange(0,250,25))
+    ax[2].set_title("Mean")
+    
+    ax[3].hist(sigmas, bins=np.arange(0,80,10))
+    ax[3].set_title("Std")
+    
+def adjust_contrast(data, contrast):
+    mu = np.mean(data)
+    
+    data = (data - mu) * contrast + mu
+    
+    return data
+
+
+# In[ ]:
+
+
+def flatten(l):
+    out = []
+    for item in l:
+        if isinstance(item, (list, tuple)):
+            out.extend(flatten(item))
+        else:
+            out.append(item)
+    return out
+
+
+# In[ ]:
+
+
+# determines if a 2d array has more than max_percentage of its values the same
+def array_repeats(data, max_percentage=0.4):
+    # count number of times each value appears in the array
+    counts = np.unique(data, return_counts=True)[1]
+    
+    # get the number of elements in the array
+    array_shape = data.shape[0] * data.shape[1]
+    
+    if np.max(counts) > array_shape * max_percentage:
+        return True
+    else:
+        return False
+    
+
+
+# In[ ]:
+
+
+def trim_edges_from_image(image):
+    # trim from the left side
+    h = image.shape[0]
+    
+    # figure if a column contains almost all black pixels
+    black_cols = np.sum(image <= 9, axis=0) == h
+    
+    return image[:,~black_cols]
 
