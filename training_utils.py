@@ -30,7 +30,10 @@ def download_file(url, name):
 
         # if the file is a zip file unzip it
         if "zip" in name:
-            unzip(os.path.join("data", name), "data")
+            try:
+                unzip(os.path.join("data", name), "data")
+            except:
+                print("Error extracting zip file...")
 
             # then delete the zip to save disk space
             try:
@@ -43,13 +46,15 @@ def download_file(url, name):
         print("Error downloading", url)
 
 
-
 ## Batch generator with optional filenames parameter which will also return the filenames of the images
 ## so that they can be identified
-def get_batches(X, y, batch_size, filenames=None, distort=False):
-    # Shuffle X,y
+def get_batches(X, y, batch_size, filenames=None, distort=False, shuffle=True):
     shuffled_idx = np.arange(len(y))
-    np.random.shuffle(shuffled_idx)
+
+    # if we are shuffling shuffle the index
+    if shuffle:
+        np.random.shuffle(shuffled_idx)
+
     i, h, w, c = X.shape
 
     # Enumerate indexes by steps of batch_size
@@ -87,7 +92,7 @@ def _image_random_flip(image, label):
     return image_aug, label_aug
 
 ## read data from tfrecords file
-def read_and_decode_single_example(filenames, label_type='label_normal', normalize=False, distort=False, num_epochs=None):
+def read_and_decode_single_example(filenames, label_type='label_normal', normalize=False, distort=False, num_epochs=None, size=299):
     filename_queue = tf.train.string_input_producer(filenames, num_epochs=num_epochs)
 
     reader = tf.TFRecordReader()
@@ -131,13 +136,8 @@ def read_and_decode_single_example(filenames, label_type='label_normal', normali
         image = tf.decode_raw(features['image'], tf.uint8)
 
         label = tf.cast(label, tf.int32)
-        # image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-
-        image = tf.reshape(image, [288, 288, 1])
-        label = tf.reshape(label, [288, 288, 1])
-
-        # if distort:
-        #     image, label = _image_random_flip(image, label)
+        image = tf.reshape(image, [size, size, 1])
+        label = tf.reshape(label, [size, size, 1])
 
     if normalize:
         image = tf.image.per_image_standardization(image)
@@ -171,6 +171,12 @@ def load_validation_data(data="validation", how="normal", which=5, percentage=1)
         elif which == 11:
             X_cv = np.load(os.path.join("data", "cv11_data.npy"))
             labels = np.load(os.path.join("data", "cv11_labels.npy"))
+        elif which == 12:
+            X_cv = np.load(os.path.join("data", "cv12_data.npy"))
+            labels = np.load(os.path.join("data", "cv12_labels.npy"))
+        elif which == 13:
+            X_cv = np.load(os.path.join("data", "cv13_data.npy"))
+            labels = np.load(os.path.join("data", "cv13_labels.npy"))
     elif data == "test":
         if which == 4:
             X_cv = np.load(os.path.join("data", "test4_data.npy"))
@@ -193,6 +199,12 @@ def load_validation_data(data="validation", how="normal", which=5, percentage=1)
         elif which == 11:
             X_cv = np.load(os.path.join("data", "test11_data.npy"))
             labels = np.load(os.path.join("data", "test11_labels.npy"))
+        elif which == 12:
+            X_cv = np.load(os.path.join("data", "test12_data.npy"))
+            labels = np.load(os.path.join("data", "test12_labels.npy"))
+        elif which == 13:
+            X_cv = np.load(os.path.join("data", "test13_data.npy"))
+            labels = np.load(os.path.join("data", "test13_labels.npy"))
     elif data == "mias":
         if which == 9:
             X_cv = np.load(os.path.join("data", "all_mias_slices9.npy"))
@@ -277,8 +289,25 @@ def download_data(what=4):
         if not os.path.exists(os.path.join("data", "cv8_filenames.npy")):
             _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv8_filenames.npy',
                               'cv8_filenames.npy')
+    elif what == 100:
+        # download and unzip images
+        if not os.path.exists(os.path.join("data", "train_images", "P_00008_LEFT_CC_10.png")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/train_images0.zip',
+                              'train_images0.zip')
 
-    if what == 9:
+        # if not os.path.exists(os.path.join("data", "train_images", "P_00520_LEFT_CC_809.png")):
+        #     _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/train_images1.zip',
+        #                       'train_images1.zip')
+        #
+        # if not os.path.exists(os.path.join("data", "train_images", "P_01009_RIGHT_CC_1583.png")):
+        #     _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/train_images2.zip',
+        #                       'train_images2.zip')
+        #
+        # if not os.path.exists(os.path.join("data", "train_images", "P_01524_LEFT_MLO_2377.png")):
+        #     _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/train_images3.zip',
+        #                       'train_images3.zip')
+
+    elif what == 9:
         # download and unzip tfrecords training data
         if not os.path.exists(os.path.join("data", "training9_0.tfrecords")):
             _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training9_0.zip',
@@ -404,7 +433,88 @@ def download_data(what=4):
         # download validation labels
         if not os.path.exists(os.path.join("data", "cv11_labels.npy")):
             _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv11_labels.zip','cv11_labels.zip')
-    
+
+    elif what == 12:
+        # download and unzip tfrecords training data
+        if not os.path.exists(os.path.join("data", "training12_0.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training12_0.zip',
+                              'training12_0.zip')
+
+        if not os.path.exists(os.path.join("data", "training12_1.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training12_1.zip',
+                              'training12_1.zip')
+
+        if not os.path.exists(os.path.join("data", "training12_2.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training12_2.zip',
+                              'training12_2.zip')
+
+        if not os.path.exists(os.path.join("data", "training12_3.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training12_3.zip',
+                              'training12_3.zip')
+
+        if not os.path.exists(os.path.join("data", "training12_4.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training12_4.zip',
+                              'training12_4.zip')
+
+        # download and unzip test data
+        if not os.path.exists(os.path.join("data", "test12_data.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test12_data.zip',
+                              'test12_data.zip')
+
+        # download test labels
+        if not os.path.exists(os.path.join("data", "test12_labels.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test12_labels.zip',
+                              'test12_labels.zip')
+
+        # download and unzip validation data
+        if not os.path.exists(os.path.join("data", "cv12_data.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv12_data.zip', 'cv12_data.zip')
+
+        # download validation labels
+        if not os.path.exists(os.path.join("data", "cv12_labels.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv12_labels.zip',
+                              'cv12_labels.zip')
+            
+    elif what == 13:
+        # download and unzip tfrecords training data
+        if not os.path.exists(os.path.join("data", "training13_0.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training13_0.zip',
+                              'training13_0.zip')
+
+        if not os.path.exists(os.path.join("data", "training13_1.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training13_1.zip',
+                              'training13_1.zip')
+
+        if not os.path.exists(os.path.join("data", "training13_2.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training13_2.zip',
+                              'training13_2.zip')
+
+        if not os.path.exists(os.path.join("data", "training13_3.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training13_3.zip',
+                              'training13_3.zip')
+
+        if not os.path.exists(os.path.join("data", "training13_4.tfrecords")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/training13_4.zip',
+                              'training13_4.zip')
+
+        # download and unzip test data
+        if not os.path.exists(os.path.join("data", "test13_data.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test13_data.zip',
+                              'test13_data.zip')
+
+        # download test labels
+        if not os.path.exists(os.path.join("data", "test13_labels.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/test13_labels.zip',
+                              'test13_labels.zip')
+
+        # download and unzip validation data
+        if not os.path.exists(os.path.join("data", "cv13_data.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv13_data.zip', 'cv13_data.zip')
+
+        # download validation labels
+        if not os.path.exists(os.path.join("data", "cv13_labels.npy")):
+            _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/cv13_labels.zip',
+                              'cv13_labels.zip')
     elif what == 0:
         # download MIAS test data
         if not os.path.exists(os.path.join("data", "mias_test_images.npy")):
@@ -477,17 +587,7 @@ def download_data(what=4):
 ## Load the training data and return a list of the tfrecords file and the size of the dataset
 ## Multiple data sets have been created for this project, which one to be used can be set with the type argument
 def get_training_data(what=5):
-    if what == 6:
-        train_path_10 = os.path.join("data", "training6_0.tfrecords")
-        train_path_11 = os.path.join("data", "training6_1.tfrecords")
-        train_path_12 = os.path.join("data", "training6_2.tfrecords")
-        train_path_13 = os.path.join("data", "training6_3.tfrecords")
-        train_path_14 = os.path.join("data", "training6_4.tfrecords")
-
-        train_files = [train_path_10, train_path_11, train_path_12, train_path_13, train_path_14]
-        total_records = 62764
-
-    elif what == 8:
+    if what == 8:
         train_path_10 = os.path.join("data", "training8_0.tfrecords")
         train_path_11 = os.path.join("data", "training8_1.tfrecords")
         train_path_12 = os.path.join("data", "training8_2.tfrecords")
@@ -517,15 +617,25 @@ def get_training_data(what=5):
         train_files = [train_path_10, train_path_11, train_path_12, train_path_13, train_path_14]
         total_records = 55890
 
-    elif what == 11:
-        train_path_10 = os.path.join("data", "training11_0.tfrecords")
-        train_path_11 = os.path.join("data", "training11_1.tfrecords")
-        train_path_12 = os.path.join("data", "training11_2.tfrecords")
-        train_path_13 = os.path.join("data", "training11_3.tfrecords")
-        train_path_14 = os.path.join("data", "training11_4.tfrecords")
+    elif what == 12:
+        train_path_10 = os.path.join("data", "training12_0.tfrecords")
+        train_path_11 = os.path.join("data", "training12_1.tfrecords")
+        train_path_12 = os.path.join("data", "training12_2.tfrecords")
+        train_path_13 = os.path.join("data", "training12_3.tfrecords")
+        train_path_14 = os.path.join("data", "training12_4.tfrecords")
 
         train_files = [train_path_10, train_path_11, train_path_12, train_path_13, train_path_14]
-        total_records = 33241
+        total_records = 36755
+        
+    elif what == 13:
+        train_path_10 = os.path.join("data", "training13_0.tfrecords")
+        train_path_11 = os.path.join("data", "training13_1.tfrecords")
+        train_path_12 = os.path.join("data", "training13_2.tfrecords")
+        train_path_13 = os.path.join("data", "training13_3.tfrecords")
+        train_path_14 = os.path.join("data", "training13_4.tfrecords")
+
+        train_files = [train_path_10, train_path_11, train_path_12, train_path_13, train_path_14]
+        total_records = 13548
     else:
         raise ValueError('Invalid dataset!')
 
@@ -741,3 +851,52 @@ def plot_results(y_, yhat, x_, threshold=20):
             ax[2].imshow(yhat[i].reshape(288,288))
             ax[2].set_title("Prediction")
             plt.show()
+
+
+def _parse_function(filename, size=640):
+    image_string = tf.read_file(filename)
+    image_decoded = tf.image.decode_image(image_string)
+
+    cropped_image = tf.random_crop(image_decoded, size=[size, size, 3])
+
+    image = cropped_image[:, :, 0]
+    label = cropped_image[:, :, 1]
+
+    return image, label
+
+# From a directory, read the files in the directory, create a queue, read images from the queue,
+# process, re-size and reshape and return them.
+# Args: image_dir - str - path to directory
+#       crop_size - int - size of images to return
+#       scale_by - float - how much to resize raw images by
+# Returns: image - Tensor of image, shape (crop_size, crop_size, 1)
+#          label - Tensor of label, shape (crop_size, crop_size, 1)
+def _read_images(image_dir, crop_size, scale_by=0.66):
+    filenames = tf.train.match_filenames_once(image_dir + "*.png")
+    filename_queue = tf.train.string_input_producer(filenames)
+
+    # create the reader
+    image_reader = tf.WholeFileReader()
+
+    # Read a whole file from the queue
+    filename, image_file = image_reader.read(filename_queue)
+
+    # decode the image
+    raw_image = tf.image.decode_png(image_file)
+
+    # figure out size of raw crop by dividing size by scale
+    image_size = int(crop_size // scale_by)
+
+    # crop the image
+    raw_image = tf.random_crop(raw_image, size=[image_size, image_size, 3])
+
+    # resize the image
+    resized_image = tf.image.resize_images(raw_image, size=[crop_size, crop_size])
+
+    # extract the image and label from the channels and resize them for convnet
+    image = tf.reshape(resized_image[:, :, 0], [crop_size, crop_size, 1])
+    label = tf.reshape(resized_image[:, :, 1], [crop_size, crop_size, 1])
+
+    label = tf.cast(label, dtype=tf.int32)
+
+    return image, label
