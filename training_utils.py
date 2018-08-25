@@ -32,15 +32,11 @@ def download_file(url, name):
         if "zip" in name:
             try:
                 unzip(os.path.join("data", name), "data")
-            except:
-                print("Error extracting zip file...")
 
-            # then delete the zip to save disk space
-            try:
                 os.remove(os.path.join("data", name))
                 print("\nZip file extracted and deleted", name)
             except:
-                print("Error deleting zip file", name)
+                print("Error extracting and/or deleting zip file...")
 
     except:
         print("Error downloading", url)
@@ -92,7 +88,7 @@ def _image_random_flip(image, label):
     return image_aug, label_aug
 
 ## read data from tfrecords file
-def read_and_decode_single_example(filenames, label_type='label_normal', normalize=False, distort=False, num_epochs=None, size=299):
+def read_and_decode_single_example(filenames, label_type='label_normal', normalize=False, distort=False, num_epochs=None, size=299, scale=True):
     filename_queue = tf.train.string_input_producer(filenames, num_epochs=num_epochs)
 
     reader = tf.TFRecordReader()
@@ -139,6 +135,10 @@ def read_and_decode_single_example(filenames, label_type='label_normal', normali
         image = tf.reshape(image, [size, size, 1])
         label = tf.reshape(label, [size, size, 1])
 
+    if scale:
+        # image = tf.cast(image, tf.float32)
+        image = _scale_input_data(image, contrast=0, mu=127.0, scale=255.0)
+
     if normalize:
         image = tf.image.per_image_standardization(image)
 
@@ -147,7 +147,7 @@ def read_and_decode_single_example(filenames, label_type='label_normal', normali
 
 
 ## load the test data from files
-def load_validation_data(data="validation", how="normal", which=5, percentage=1):
+def load_validation_data(data="validation", how="normal", which=5, percentage=1, scale=False):
     if data == "validation":
         # load the two data files
         if which == 4:
@@ -177,6 +177,12 @@ def load_validation_data(data="validation", how="normal", which=5, percentage=1)
         elif which == 13:
             X_cv = np.load(os.path.join("data", "cv13_data.npy"))
             labels = np.load(os.path.join("data", "cv13_labels.npy"))
+        elif which == 100:
+            X_cv = np.load(os.path.join("data", "cv100_data.npy"))
+            labels = np.load(os.path.join("data", "cv100_labels.npy"))
+        else:
+            X_cv = np.load(os.path.join("data", "cv13_data.npy"))
+            labels = np.load(os.path.join("data", "cv13_labels.npy"))
     elif data == "test":
         if which == 4:
             X_cv = np.load(os.path.join("data", "test4_data.npy"))
@@ -203,6 +209,12 @@ def load_validation_data(data="validation", how="normal", which=5, percentage=1)
             X_cv = np.load(os.path.join("data", "test12_data.npy"))
             labels = np.load(os.path.join("data", "test12_labels.npy"))
         elif which == 13:
+            X_cv = np.load(os.path.join("data", "test13_data.npy"))
+            labels = np.load(os.path.join("data", "test13_labels.npy"))
+        elif which == 100:
+            X_cv = np.load(os.path.join("data", "test100_data.npy"))
+            labels = np.load(os.path.join("data", "test100_labels.npy"))
+        else:
             X_cv = np.load(os.path.join("data", "test13_data.npy"))
             labels = np.load(os.path.join("data", "test13_labels.npy"))
     elif data == "mias":
@@ -236,6 +248,10 @@ def load_validation_data(data="validation", how="normal", which=5, percentage=1)
 
     # shuffle the data
     X_cv, y_cv = shuffle(X_cv, y_cv)
+
+    # optional scaling
+    if scale:
+        X_cv = (X_cv - 127.0) / 255.0
 
     return X_cv, y_cv
 
@@ -295,18 +311,57 @@ def download_data(what=4):
             _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/train_images0.zip',
                               'train_images0.zip')
 
-        # if not os.path.exists(os.path.join("data", "train_images", "P_00520_LEFT_CC_809.png")):
-        #     _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/train_images1.zip',
-        #                       'train_images1.zip')
-        #
-        # if not os.path.exists(os.path.join("data", "train_images", "P_01009_RIGHT_CC_1583.png")):
-        #     _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/train_images2.zip',
-        #                       'train_images2.zip')
-        #
-        # if not os.path.exists(os.path.join("data", "train_images", "P_01524_LEFT_MLO_2377.png")):
-        #     _ = download_file('https://s3.eu-central-1.amazonaws.com/aws.skoo.ch/files/train_images3.zip',
-        #                       'train_images3.zip')
+        if not os.path.exists(os.path.join("data", "train_images", "P_00510_RIGHT_CC_791.png")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/train_images1.zip',
+                              'train_images1.zip')
 
+        if not os.path.exists(os.path.join("data", "train_images", "P_01009_RIGHT_CC_1583.png")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/train_images2.zip',
+                              'train_images2.zip')
+
+        if not os.path.exists(os.path.join("data", "train_images", "P_01252_RIGHT_CC_1953.png")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/train_images3.zip',
+                              'train_images3.zip')
+
+        if not os.path.exists(os.path.join("data", "train_images", "P_01741_RIGHT_CC_2710.png")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/train_images4.zip',
+                              'train_images4.zip')
+
+        if not os.path.exists(os.path.join("data", "train_images", "P_01501_RIGHT_CC_2343.png")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/train_images5.zip',
+                              'train_images5.zip')
+
+        if not os.path.exists(os.path.join("data", "train_images", "P_00751_LEFT_CC_1184.png")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/train_images6.zip',
+                              'train_images6.zip')
+
+        if not os.path.exists(os.path.join("data", "cv100_data.npy")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/cv100_data.zip',
+                              'cv100_data.zip')
+
+        if not os.path.exists(os.path.join("data", "cv100_labels.npy")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/cv100_labels.zip',
+                              'cv100_labels.zip')
+
+        if not os.path.exists(os.path.join("data", "test100_data.npy")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/test100_data.zip',
+                              'test100_data.zip')
+
+        if not os.path.exists(os.path.join("data", "test100_labels.npy")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/test100_labels.zip',
+                              'test100_labels.zip')
+
+        if not os.path.exists(os.path.join("data", "train_images", "P_00008_RIGHT_MLO_13_cropped.png")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/train_images2_0.zip',
+                              'train_images2_0.zip')
+
+        if not os.path.exists(os.path.join("data", "train_images", "P_00701_LEFT_CC_844_cropped.png")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/train_images2_1.zip',
+                              'train_images2_1.zip')
+
+        if not os.path.exists(os.path.join("data", "train_images", "P_01313_LEFT_CC_1626_cropped.png")):
+            _ = download_file('https://s3.eu-west-3.amazonaws.com/deep.skoo.ch/mammography/train_images2_2.zip',
+                              'train_images2_2.zip')
     elif what == 9:
         # download and unzip tfrecords training data
         if not os.path.exists(os.path.join("data", "training9_0.tfrecords")):
@@ -869,11 +924,12 @@ def _parse_function(filename, size=640):
 # Args: image_dir - str - path to directory
 #       crop_size - int - size of images to return
 #       scale_by - float - how much to resize raw images by
+#       distort - bool - whether or not to do online data augmentation
 # Returns: image - Tensor of image, shape (crop_size, crop_size, 1)
 #          label - Tensor of label, shape (crop_size, crop_size, 1)
-def _read_images(image_dir, crop_size, scale_by=0.66):
+def _read_images(image_dir, crop_size, scale_by=0.66, mu=127.0, scale=255.0, distort=False, standardize=False):
     filenames = tf.train.match_filenames_once(image_dir + "*.png")
-    filename_queue = tf.train.string_input_producer(filenames)
+    filename_queue = tf.train.string_input_producer(filenames, capacity=2048, name="file_queue")
 
     # create the reader
     image_reader = tf.WholeFileReader()
@@ -884,19 +940,42 @@ def _read_images(image_dir, crop_size, scale_by=0.66):
     # decode the image
     raw_image = tf.image.decode_png(image_file)
 
+    # call function to process and crop images
+    return _process_images(raw_image, crop_size=crop_size, scale_by=scale_by, mu=127.0, scale=255.0, distort=distort, standardize=standardize)
+
+def _process_images(raw_image, crop_size=640, scale_by=0.66, mu=127.0, scale=255.0, distort=False, standardize=False):
     # figure out size of raw crop by dividing size by scale
-    image_size = int(crop_size // scale_by)
+    if scale_by != 1.0:
+        image_size = int(crop_size // scale_by)
+    else:
+        image_size = crop_size
 
-    # crop the image
-    raw_image = tf.random_crop(raw_image, size=[image_size, image_size, 3])
+    # add a small amount of random noise to the size for variety
+    nnoise = tf.random_normal([1], mean=1.0, stddev=0.025)
+    noisy_image_size = tf.cast(image_size * nnoise, dtype=tf.int32)
 
-    # resize the image
-    resized_image = tf.image.resize_images(raw_image, size=[crop_size, crop_size])
+    # random crop the image
+    raw_image = tf.random_crop(raw_image, size=[noisy_image_size[0], noisy_image_size[0], 3])
+
+    # if applicable, resize the image to the destination size
+    if scale_by != 1.0:
+        image_size = crop_size
+        raw_image = tf.image.resize_images(raw_image, [image_size, image_size])
 
     # extract the image and label from the channels and resize them for convnet
-    image = tf.reshape(resized_image[:, :, 0], [crop_size, crop_size, 1])
-    label = tf.reshape(resized_image[:, :, 1], [crop_size, crop_size, 1])
+    image = tf.reshape(raw_image[:, :, 0], [image_size, image_size, 1])
+    label = tf.reshape(raw_image[:, :, 1], [image_size, image_size, 1])
 
+    # cast the label to an int
     label = tf.cast(label, dtype=tf.int32)
+
+    if standardize:
+        image = tf.image.per_image_standardization(image)
+    else:
+        # scale the image
+        image = _scale_input_data(image, contrast=None, mu=mu, scale=scale)
+
+    if distort:
+        image, label = augment(image, label, horizontal_flip=True, augment_labels=True, vertical_flip=True, mixup=0)
 
     return image, label
