@@ -290,3 +290,14 @@ The following pre-trained models are available for download. Each zip file conta
 [25] F. Yu, V. Koltun, Multi-Scale Context Aggregation by Dilated Convolutions, arXiv:1511.07122, 2016
 
 [26] A. Odena, V. Dumoulin, Deconvolution and Checkerboard Artifacts, 2016, https://distill.pub/2016/deconv-checkerboard/
+
+## Citation
+
+<pre>
+@misc{ scuccimarra2018.2,
+    author = "Scuccimarra, Eric",
+    title = "Dense Prediction of Mammography",
+    year = "2018",
+    url = "https://github.com/escuccim/mias-mammography/blob/master/Report2.md",
+  }  
+</pre>
