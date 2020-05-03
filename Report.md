@@ -344,3 +344,12 @@ The following pre-trained models are available for download. Each zip file conta
 [21] R. Girshick, J. Donahue, T. Darrell, J. Malik, Rich feature hierarchies for accurate object detection and semantic segmentation, arXiv:1311.2524, 2013
 
 [22] S. Arkhangelskiy, Data Augmentation on GPU in TensorFlow, https://becominghuman.ai/data-augmentation-on-gpu-in-tensorflow-13d14ecf2b19 
+
+## Citation
+
+<pre>@misc{ scuccimarra2018,
+    author = "Scuccimarra, Eric",
+    title = "ConvNets for Detection of Abnormalities in Mammograms",
+    year = "2018",
+    url = "https://github.com/escuccim/mias-mammography/blob/master/Report.md",
+  }</pre>
